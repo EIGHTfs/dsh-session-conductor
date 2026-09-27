@@ -1,0 +1,48 @@
+# dsh-session-conductor bundle patch —— 会话管理增强（单包双面）。
+#   · 宿主插件（dsh.bundle）：注册 /api/session-conductor/* 路由
+#       GET  /list                列出全部会话（标题/运行状态/是否归档/中断状态/开关）
+#       POST /archive             归档会话（原生 workspaceRegistry.archiveSession）
+#       POST /unarchive           取消归档（注册表 setState 写回，前端自动收到变更帧）
+#       POST /delete              删除会话（拒绝运行中；detach + 记账清理 + 删磁盘日志）
+#       POST /auto-rename         开启/关闭「自动重命名」（回合结束 AI 分析，主题偏离才改名）
+#       POST /analyze             立即分析一次对话主题，必要时自动重命名
+#       POST /continue            手动续跑一个被中断的会话
+#       POST /auto-continue       开启/关闭某会话「自动续跑」（覆盖全局默认）
+#       POST /scan                立即扫描一遍会话并自动续跑
+#       POST /detach              置为不活跃：释放一个 live 空闲会话（拒绝运行中/subagent）
+#       POST /detach-all          释放全部空闲会话
+#   · 浏览器插件（dsh.client）：侧边栏底部「会话管理」入口 + 面板
+#       （全部会话 / 已归档 / 活跃 / 说明 视图；恢复归档、删除会话、自动重命名、
+#        中断徽标 + 继续按钮 + 自动续跑开关、置为不活跃/释放全部空闲）
+#
+#   可选 config（顶层键，全部有默认值）：
+#     enabled: true               自动续跑总开关
+#     defaultAutoContinue: true   单会话默认开启自动续跑（面板可逐会话覆盖）
+#     maxConcurrent: 2            全局同时续跑会话数上限
+#     maxAttached: 12             活跃（attached）会话上限，达到后自动续跑暂停
+#     cooldownMs: 900000          同会话自动续跑最小间隔（毫秒，默认 15 分钟）
+#     maxContinuesPerSession: 3   每会话自动续跑总次数上限（防死循环）
+#     turnTimeoutMs: 1200000      单回合续跑最长等待（毫秒，默认 20 分钟）
+#     scanIntervalMs: 300000      周期扫描间隔（毫秒，默认 5 分钟）
+#   · 会话分组（2026-09-26 起仅只读展示 + 分组下新建会话，/api/session-conductor/group/*）：
+#     groupEnabled: true          分组模块总开关（false = 不注册 group 路由）
+#     blockGroupNewSession: false 禁止「在分组下直接新建会话」（true 时 new-session 返回 401；缺省 workspaceId = 上次会话工作区）
+- insert:
+    - id: dsh-session-conductor
+      name: dsh-session-conductor
+
+# —— 全文搜索：解锁官方 FTS5 内容搜索（v1.19.0 起并入，原独立插件 dsh-session-search 已合并）——
+# 官方默认 session-query-sqlite 配成 openAt: never（侧边栏搜索只匹配标题/工作区名）。
+# 这里覆盖为 first-search：首次搜索时构建 SQLite FTS5 索引，GUI 搜索即变为内容全文搜索
+# （snippet 命中上下文、相关度排序、分页均为官方现成实现）。
+# ⚠️ patch 层按 id 整行替换 config 不合并：必须 restate 全部 key。
+# ⚠️ path 必须是磁盘文件（v1.35.8 起）。原值 ':memory:' 会把全部会话正文的 FTS5 索引建在内存里：
+#   实测每 MB 文本约耗 3.3MB 内存，本机会话正文约 443MB → 单次「首次搜索」建索引峰值约 1.4GB，
+#   叠加进程基线后触发 OOM，表现为「启用本插件后隔一会 DSH 进程被杀、会话加载不出来」。
+#   官方 base bundle 注释同样要求启用内容搜索时配 durable path（默认 openAt: never 不建索引）。
+#   path 用 !!js 取 DSH_HOME，避免写死本机绝对路径；索引是派生数据，可随时删除重建。
+# 兜底：本插件 /api/session-conductor/search 内置 zstd 逐会话扫描（FTS5 不可用时仍可搜）。
+- id: session-query-sqlite
+  config:
+    path: !!js (process.env.DSH_HOME || (process.env.HOME + '/.dsh')) + '/session-query.sqlite'
+    openAt: first-search

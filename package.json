@@ -1,0 +1,63 @@
+{
+  "name": "dsh-session-conductor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DSH session management enhancement: archive/restore sessions, batch & conditional delete, AI auto-rename, interrupted-session auto-resume, release idle sessions, workspace grouping, undo last message, repair damaged session logs, value analysis, full-text search, and plan/closing template injection (system-prompt + context).",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "license": "MIT",
+  "author": "EIGHTfs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EIGHTfs/dsh-session-conductor.git"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "session",
+    "session-manager",
+    "archive",
+    "restore",
+    "delete",
+    "auto-rename",
+    "auto-resume",
+    "interruption",
+    "workspace",
+    "group",
+    "undo",
+    "repair",
+    "template-injection"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings-plugins",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    },
+    "skills": [
+      "./skills/dsh-session-conductor.md",
+      "./skills/dsh-session-conductor-functions.md",
+      "./skills/task-completion-report.md",
+      "./skills/dsh-session-official-doc.md"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+# 依赖目录：node_modules/ 只匹配目录，另起一行匹配同名软链接（no-symlink-in-plugin：插件禁软链接入库）
+node_modules/
+node_modules
+*.log
+.DS_Store
+# npm 下载产物（dsh-git-push 自动追加，2026-08-20）
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lock
+npm-debug.log*
+.npm/
+.pnpm-store/
+# 软链接/补丁残留（no-symlink-in-plugin：插件禁软链接，*.orig 只留本地不入库，2026-09-11）
+node_modules.orig
+*.orig
+
+# 安全删除回收站（safe-delete-trash：删除的文件先移到这里，不入库）
+.trash/
+
+# Python 编译缓存（lib/__pycache__/ 运行时生成，不入库）
+__pycache__/
+
+# 构建/生成产物不入库（2026-09-27）：lib/client.js 由 build.cjs 从分片拼接生成；
+# tmp-snapshot/ 为快照版预览的临时抓取数据
+lib/client.js
+lib/client.js.bak-i18n
+*.bak-i18n
+tmp-snapshot/
+
+# 界面截图不入库（文档配图本地自留，2026-09-27）
+assets/shots/

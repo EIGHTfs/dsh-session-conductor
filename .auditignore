@@ -1,0 +1,10 @@
+# 审计豁免（不影响 git 跟踪，仅跳过审计扫描；语法同 .gitignore，文件/目录级）
+
+# 侧边栏会话管理面板 UI（单文件前端入口，2276 行，package.json 的 "./client" 入口）：
+#   本插件前端不引框架、全用 react/jsx-runtime 的 createElement 手写单文件渲染，
+#   由零依赖发布约束与 DSH client 单入口（window.__ModuleLoader__.load）决定——
+#   拆成多文件会引入模块边界与构建步骤，与单文件入口目标相悖；
+#   面板交互有 test-search-delete / test-auto-continue 等服务端单测覆盖真实链路，
+#   此处豁免的是风格/复杂度/健康度类规则（file-health L4、超长函数、conv-log 文案、
+#   fetch 无超时警告等），不是「无人测」。
+lib/client.js
