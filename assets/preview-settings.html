@@ -33357,7 +33357,7 @@ window.__SC_FALLBACK__ = { zh: {"sessionConductor":{"settings.nav":"会话管理
 window.__SC_I18N__ = window.__SC_I18N__ || { zh: {}, en: {}, loaded: false, waiters: [] };
 if (!window.__SC_I18N__.started) {
   window.__SC_I18N__.started = true;
-  fetch("/api/session-conductor/i18n", { credentials: "same-origin" })
+  (window.__scFetch || fetch)("/api/session-conductor/i18n", { credentials: "same-origin" })
     .then((r) => (r.ok ? r.json() : null))
     .then((body) => {
       if (body && body.ok && body.zh && body.en) {
@@ -33430,6 +33430,16 @@ window.__ModuleLoader__.load({
     __scFillI18nDict("sessionConductor", zh, en);
 
     // ---------- 工具 ----------
+
+    // 全局 fetch 超时兜底：DSH API 挂起（重负载/路由未注册）时界面不再无限等待。
+    // 与 fetch 同签名（url, opts, timeoutMs），默认 30s；分片统一走 __scFetch。
+    window.__scFetch = function (url, opts, timeoutMs) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs || 30000);
+      const next = opts ? Object.assign({}, opts, { signal: controller.signal }) : { signal: controller.signal };
+      return fetch(url, next).finally(() => clearTimeout(timer));
+    };
+
     function basenameOf(p) {
       const value = String(p ?? "");
       const cleaned = value.replace(/[/\\]+$/, "");
@@ -33701,8 +33711,8 @@ window.__ModuleLoader__.load({
       };
       const refresh = react.useCallback(async () => {
         try {
-          const listPromise = fetch("/api/session-conductor/list", { headers: { Accept: "application/x-ndjson" } });
-          const groupPromise = fetch("/api/session-conductor/group/list")
+          const listPromise = window.__scFetch("/api/session-conductor/list", { headers: { Accept: "application/x-ndjson" } });
+          const groupPromise = window.__scFetch("/api/session-conductor/group/list")
             .then((r) => (r.ok ? r.json() : { ok: false })).catch(() => ({ ok: false }));
           const listRes = await listPromise;
           if (!listRes.ok) throw new Error("list failed: HTTP " + listRes.status);
@@ -33767,7 +33777,7 @@ window.__ModuleLoader__.load({
           return cur;
         });
         try {
-          const res = await fetch(`/api/session-conductor/${action}`, {
+          const res = await window.__scFetch(`/api/session-conductor/${action}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
@@ -33798,7 +33808,7 @@ window.__ModuleLoader__.load({
       const undoLast = async (session) => {
         setBusy(session.id);
         try {
-          const res = await fetch("/api/session-conductor/undo-message", {
+          const res = await window.__scFetch("/api/session-conductor/undo-message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId: session.id, dryRun: true }),
@@ -33808,7 +33818,7 @@ window.__ModuleLoader__.load({
           const preview = body.preview || t("undo.preview.empty");
           const yes = window.confirm(`${t("confirm.undo.title")}\n\n${t("confirm.undo.body", { preview })}`);
           if (!yes) return;
-          const res2 = await fetch("/api/session-conductor/undo-message", {
+          const res2 = await window.__scFetch("/api/session-conductor/undo-message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId: session.id }),
@@ -33829,7 +33839,7 @@ window.__ModuleLoader__.load({
       const toggleAutoRename = async (sessionId, enabled) => {
         setSessions((cur) => cur.map((s) => (s.id === sessionId ? { ...s, autoRename: enabled } : s)));
         try {
-          const res = await fetch("/api/session-conductor/auto-rename", {
+          const res = await window.__scFetch("/api/session-conductor/auto-rename", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId, enabled }),
@@ -33852,7 +33862,7 @@ window.__ModuleLoader__.load({
       const analyzeNow = async (sessionId) => {
         setBusy(sessionId);
         try {
-          const res = await fetch("/api/session-conductor/analyze", {
+          const res = await window.__scFetch("/api/session-conductor/analyze", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
@@ -33878,7 +33888,7 @@ window.__ModuleLoader__.load({
         if (busy) return;
         setBusy("__repair__");
         try {
-          const scanRes = await fetch("/api/session-conductor/repair-sessions", {
+          const scanRes = await window.__scFetch("/api/session-conductor/repair-sessions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dryRun: true }),
@@ -33891,7 +33901,7 @@ window.__ModuleLoader__.load({
             : t("repair.confirm", { n: corrupt });
           if (corrupt > 0 && !window.confirm(msg)) { setBusy(null); return; }
           if (corrupt === 0) { window.alert(msg); setBusy(null); return; }
-          const fixRes = await fetch("/api/session-conductor/repair-sessions", {
+          const fixRes = await window.__scFetch("/api/session-conductor/repair-sessions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dryRun: false }),
@@ -33917,7 +33927,7 @@ window.__ModuleLoader__.load({
         if (busy) return;
         setBusy("__repair_eio__");
         try {
-          const scanRes = await fetch("/api/session-conductor/repair-eio", {
+          const scanRes = await window.__scFetch("/api/session-conductor/repair-eio", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dryRun: true }),
@@ -33930,7 +33940,7 @@ window.__ModuleLoader__.load({
             : t("repairEio.confirm", { n: eioCount });
           if (eioCount === 0) { window.alert(msg); setBusy(null); return; }
           if (!window.confirm(msg)) { setBusy(null); return; }
-          const fixRes = await fetch("/api/session-conductor/repair-eio", {
+          const fixRes = await window.__scFetch("/api/session-conductor/repair-eio", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dryRun: false }),
@@ -33956,7 +33966,7 @@ window.__ModuleLoader__.load({
         if (busy) return;
         setBusy("__repair_dual__");
         try {
-          const scanRes = await fetch("/api/session-conductor/repair-dual-format", {
+          const scanRes = await window.__scFetch("/api/session-conductor/repair-dual-format", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dryRun: true }),
@@ -33969,7 +33979,7 @@ window.__ModuleLoader__.load({
             : t("repairDual.confirm", { n: dualCount });
           if (dualCount === 0) { window.alert(msg); setBusy(null); return; }
           if (!window.confirm(msg)) { setBusy(null); return; }
-          const fixRes = await fetch("/api/session-conductor/repair-dual-format", {
+          const fixRes = await window.__scFetch("/api/session-conductor/repair-dual-format", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dryRun: false }),
@@ -33990,7 +34000,7 @@ window.__ModuleLoader__.load({
       const toggleAutoContinue = async (sessionId, enabled) => {
         setSessions((cur) => cur.map((s) => (s.id === sessionId ? { ...s, autoContinue: enabled } : s)));
         try {
-          const res = await fetch("/api/session-conductor/auto-continue", {
+          const res = await window.__scFetch("/api/session-conductor/auto-continue", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId, enabled }),
@@ -34008,7 +34018,7 @@ window.__ModuleLoader__.load({
       const releaseNow = async (sessionId) => {
         setBusy(sessionId);
         try {
-          const res = await fetch("/api/session-conductor/detach", {
+          const res = await window.__scFetch("/api/session-conductor/detach", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
@@ -34033,7 +34043,7 @@ window.__ModuleLoader__.load({
         if (!yes) return;
         setBusy("__all__");
         try {
-          const res = await fetch("/api/session-conductor/detach-all", {
+          const res = await window.__scFetch("/api/session-conductor/detach-all", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({}),
@@ -34056,7 +34066,7 @@ window.__ModuleLoader__.load({
       const continueNow = async (sessionId) => {
         setBusy(sessionId);
         try {
-          const res = await fetch("/api/session-conductor/continue", {
+          const res = await window.__scFetch("/api/session-conductor/continue", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
@@ -34086,7 +34096,7 @@ window.__ModuleLoader__.load({
         setFullSearching(true);
         setFullResults(null);
         try {
-          let res = await fetch("/api/session-search/query", {
+          let res = await window.__scFetch("/api/session-search/query", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query: q, limit: 50 }),
@@ -34095,7 +34105,7 @@ window.__ModuleLoader__.load({
           let usedFallback = false;
           if (!body?.ok || !Array.isArray(body?.items)) {
             // 官方搜索不可用 → 降级到本插件内置扫描
-            res = await fetch("/api/session-conductor/search", {
+            res = await window.__scFetch("/api/session-conductor/search", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ query: q, scope: "all" }),
@@ -34130,7 +34140,7 @@ window.__ModuleLoader__.load({
         if (!yes) return;
         setBusy("__batch__");
         try {
-          const res = await fetch("/api/session-conductor/delete-batch", {
+          const res = await window.__scFetch("/api/session-conductor/delete-batch", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionIds: ids }),
@@ -34200,7 +34210,7 @@ window.__ModuleLoader__.load({
           return;
         }
         try {
-          const res = await fetch("/api/session-conductor/delete-by-rule", {
+          const res = await window.__scFetch("/api/session-conductor/delete-by-rule", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -34234,7 +34244,7 @@ window.__ModuleLoader__.load({
         if (!yes) return;
         setBusy("__rule__");
         try {
-          const res = await fetch("/api/session-conductor/delete-by-rule", {
+          const res = await window.__scFetch("/api/session-conductor/delete-by-rule", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -35052,7 +35062,7 @@ window.__ModuleLoader__.load({
 
     function useTemplateFetch(st) {
       const refresh = react.useCallback(() => {
-        fetch("/api/session-conductor/templates", { credentials: "same-origin" })
+        window.__scFetch("/api/session-conductor/templates", { credentials: "same-origin" })
           .then(async (res) => {
             const body = await res.json().catch(() => ({}));
             if (!res.ok || !body.ok) throw new Error((body.error && body.error.message) || ("HTTP " + res.status));
@@ -35061,7 +35071,7 @@ window.__ModuleLoader__.load({
           .catch((cause) => st.setMsg({ err: (cause && cause.message) || String(cause) }));
       }, [st]);
       react.useEffect(() => { refresh(); }, [refresh]);
-      const post = (payload) => fetch("/api/session-conductor/templates", {
+      const post = (payload) => window.__scFetch("/api/session-conductor/templates", {
         method: "POST", credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -35099,7 +35109,7 @@ window.__ModuleLoader__.load({
           st.setPicker({ slot, mode: "url", url: "", path: "", parent: null, entries: [] });
           return;
         }
-        fetch("/api/session-conductor/templates/dir", { credentials: "same-origin" })
+        window.__scFetch("/api/session-conductor/templates/dir", { credentials: "same-origin" })
           .then(async (res) => {
             const body = await res.json().catch(() => ({}));
             if (!res.ok || !body.ok) throw new Error((body.error && body.error.message) || ("HTTP " + res.status));
@@ -35108,7 +35118,7 @@ window.__ModuleLoader__.load({
           .catch((cause) => st.setMsg({ err: __SC_TR__("tpl.dirFail") + ((cause && cause.message) || String(cause)) }));
       };
       const browseDir = (path) => {
-        fetch("/api/session-conductor/templates/dir?path=" + encodeURIComponent(path), { credentials: "same-origin" })
+        window.__scFetch("/api/session-conductor/templates/dir?path=" + encodeURIComponent(path), { credentials: "same-origin" })
           .then(async (res) => {
             const body = await res.json().catch(() => ({}));
             if (!res.ok || !body.ok) throw new Error((body.error && body.error.message) || ("HTTP " + res.status));
@@ -35225,7 +35235,7 @@ window.__ModuleLoader__.load({
 
       react.useEffect(() => {
         let alive = true;
-        fetch("/api/session-conductor/auto-rename-model", { headers: { accept: "application/json" } })
+        window.__scFetch("/api/session-conductor/auto-rename-model", { headers: { accept: "application/json" } })
           .then((r) => r.json())
           .then((d) => {
             if (!alive || !d?.ok) return;
@@ -35244,7 +35254,7 @@ window.__ModuleLoader__.load({
         setBusy(true);
         setMsg(null);
         try {
-          const r = await fetch("/api/session-conductor/auto-rename-model", {
+          const r = await window.__scFetch("/api/session-conductor/auto-rename-model", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(next),
@@ -35331,18 +35341,21 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
+      // 插槽排序（slots 顺序权重，小在前）：设置左侧栏「会话管理」页 vs 侧边栏底部入口
+      const SETTINGS_SECTION_ORDER = 40;
+      const SIDEBAR_ACTION_ORDER = 90;
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), "session-conductor: dictionaries");
       const slots = ctx.get("slots");
       if (slots !== undefined) {
         slots.inject("settings.section", () => slots.register(
-          { name: "settings.section", id: "session-conductor", order: 40, label: () => trSettings("settings.nav") },
+          { name: "settings.section", id: "session-conductor", order: SETTINGS_SECTION_ORDER, label: () => trSettings("settings.nav") },
           () => h(ConductorSettingsPage, null),
         ));
       }
       ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
         name: "sidebar.footer.action",
         id: "session-conductor",
-        order: 90,
+        order: SIDEBAR_ACTION_ORDER,
         locale: NS,
         inject: () => ({
           onOpenSession: (sessionId) => {
@@ -35416,7 +35429,7 @@ window.__ModuleLoader__.load({
       const [busy, setBusy] = react.useState(false);
       const [msg, setMsg] = react.useState(null);
       const load = () => {
-        fetch("/api/session-conductor/group/list").then((r) => r.json()).then((b) => {
+        window.__scFetch("/api/session-conductor/group/list").then((r) => r.json()).then((b) => {
           if (b.ok) setWorkspaces(b.workspaces ?? []);
         }).catch(() => setWorkspaces([]));
       };
@@ -35425,7 +35438,7 @@ window.__ModuleLoader__.load({
         if (busy) return;
         setBusy(true); setMsg(null);
         try {
-          const r = await fetch("/api/session-conductor/group/new-session", {
+          const r = await window.__scFetch("/api/session-conductor/group/new-session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(workspaceId ? { workspaceId } : {}),
@@ -35622,7 +35635,7 @@ window.__ModuleLoader__.load({
       react.useEffect(() => {
         (async () => {
           try {
-            const r = await fetch("/api/session-conductor/compaction-model", { headers: { accept: "application/json" } });
+            const r = await window.__scFetch("/api/session-conductor/compaction-model", { headers: { accept: "application/json" } });
             const d = await r.json();
             if (d?.ok && d.compactionModel) {
               setMode("custom");
@@ -35639,7 +35652,7 @@ window.__ModuleLoader__.load({
           const body = mode === "follow"
             ? { follow: true }
             : { provider, model };
-          const r = await fetch("/api/session-conductor/compaction-model", {
+          const r = await window.__scFetch("/api/session-conductor/compaction-model", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),

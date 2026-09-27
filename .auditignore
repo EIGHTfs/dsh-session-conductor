@@ -8,3 +8,9 @@
 #   此处豁免的是风格/复杂度/健康度类规则（file-health L4、超长函数、conv-log 文案、
 #   fetch 无超时警告等），不是「无人测」。
 lib/client.js
+
+# tools/vendor/（自备外部工具副本，非本库代码）：
+#   frontend-real-render-preview.mjs + react/react-dom UMD 是从外部复制的预览生成工具，
+#   第三方压缩/生成产物（react.development.js 3344 行 UMD）不适用本库源码质量规则；
+#   功能由 tools/preview-snapshot.sh 实测与各 test-* 单测覆盖。
+tools/vendor/

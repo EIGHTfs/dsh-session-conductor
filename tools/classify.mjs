@@ -13,7 +13,7 @@ for (const line of raw.split(/\r?\n/)) {
     const record = JSON.parse(t);
     if (Array.isArray(record)) events.push(...record);
     else events.push(record);
-  } catch {}
+  } catch { /* 非 JSON 行（工具输出/空行/截断尾）跳过，不作为事件 */ }
 }
 const info = interruptionInfo(events);
 const eligible = isAutoEligible(info);

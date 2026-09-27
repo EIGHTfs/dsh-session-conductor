@@ -74,34 +74,26 @@
   "tools/validate-session.mjs": "会话文件校验",
   "tools/vendor": "自备工具副本（预览生成器 + react-umd）",
   "tree-doc.json": "文件树注释映射（doc-tree 维护）",
-  "tools/vendor/react-umd/react-dom/umd": "（待注释）",
-  "tools/vendor/react-umd/react-dom": "（待注释）",
-  "tools/vendor/react-umd": "（待注释）",
-  "tools/vendor/react-umd/react/umd": "（待注释）",
-  "tools/vendor/react-umd/react": "（待注释）",
-  "tools/vendor/frontend-real-render-preview.mjs": "（待注释）",
-  "tools/vendor/react-umd/react-dom/umd/react-dom.development.js": "（待注释）",
-  "tools/vendor/react-umd/react/umd/react.development.js": "（待注释）",
+  "tools/vendor/react-umd/react-dom/umd": "react-dom UMD（预览渲染依赖）",
+  "tools/vendor/react-umd/react-dom": "react-dom UMD 目录",
+  "tools/vendor/react-umd": "react UMD（预览渲染依赖，自备副本）",
+  "tools/vendor/react-umd/react/umd": "react UMD（预览渲染依赖）",
+  "tools/vendor/react-umd/react": "react UMD 目录",
+  "tools/vendor/frontend-real-render-preview.mjs": "真实后端预览生成器（自备副本）",
+  "tools/vendor/react-umd/react-dom/umd/react-dom.development.js": "react-dom development UMD",
+  "tools/vendor/react-umd/react/umd/react.development.js": "react development UMD",
+  "docs": "独立文档（由 git-push doc-* 工具维护）",
+  "docs/FILE-TREE.md": "文件目录结构（doc-tree 维护）",
+  "docs/FUNCTIONS.md": "函数列表（doc-func 维护）",
+  "docs/VERSIONS.md": "版本列表（doc-version 维护）",
+  "test/unit/test-undo.mjs": "撤回消息 undoLastMessage 单测",
+  "test/e2e/.test": "e2e 测试目录审计豁免标记（0 字节）",
+  "test/unit/.test": "单测目录审计豁免标记（0 字节）",
   "_meta": {
     "worktree": {
-      ".gitignore": {
+      "docs/FILE-TREE.md": {
         "status": "M",
-        "mtime": "2026-09-27T10:44:04.396Z",
-        "note": "注释可能需更新"
-      },
-      "assets/shots/panel-trigger.png": {
-        "status": "D",
-        "mtime": "2026-09-26T18:21:15.999Z",
-        "note": "注释可能需更新"
-      },
-      "assets/shots/settings.png": {
-        "status": "D",
-        "mtime": "2026-09-26T18:21:14.657Z",
-        "note": "注释可能需更新"
-      },
-      "lib/client.js.bak-i18n": {
-        "status": "D",
-        "mtime": "2026-09-26T17:31:11.201Z",
+        "mtime": "2026-09-27T11:59:14.282Z",
         "note": "注释可能需更新"
       }
     }
