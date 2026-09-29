@@ -33433,9 +33433,10 @@ window.__ModuleLoader__.load({
 
     // 全局 fetch 超时兜底：DSH API 挂起（重负载/路由未注册）时界面不再无限等待。
     // 与 fetch 同签名（url, opts, timeoutMs），默认 30s；分片统一走 __scFetch。
+    const FETCH_TIMEOUT_MS = 30000;
     window.__scFetch = function (url, opts, timeoutMs) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs || 30000);
+      const timer = setTimeout(() => controller.abort(), timeoutMs || FETCH_TIMEOUT_MS);
       const next = opts ? Object.assign({}, opts, { signal: controller.signal }) : { signal: controller.signal };
       return fetch(url, next).finally(() => clearTimeout(timer));
     };
@@ -34077,8 +34078,10 @@ window.__ModuleLoader__.load({
           }
           await refresh();
           // 续跑进行中：轮询刷新几次以反映 continueRunning / running 状态
-          for (let i = 0; i < 6; i++) {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
+          const POLL_TIMES = 6;              // 续跑后轮询刷新次数
+          const POLL_INTERVAL_MS = 3000;     // 轮询间隔
+          for (let i = 0; i < POLL_TIMES; i++) {
+            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
             await refresh();
           }
         } catch (cause) {
@@ -34090,6 +34093,7 @@ window.__ModuleLoader__.load({
       };
 
       // —— v1.19.0：全文搜索（官方 FTS5 优先，不可用时降级内置扫描）——
+      const SEARCH_LIMIT = 50; // 单次搜索最大返回条数
       const runFullSearch = async (keyword) => {
         const q = String(keyword ?? query ?? "").trim();
         if (q.length < 2) return;
@@ -34099,7 +34103,7 @@ window.__ModuleLoader__.load({
           let res = await window.__scFetch("/api/session-search/query", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: q, limit: 50 }),
+            body: JSON.stringify({ query: q, limit: SEARCH_LIMIT }),
           });
           let body = res.ok ? await res.json() : null;
           let usedFallback = false;
@@ -35194,14 +35198,14 @@ window.__ModuleLoader__.load({
         h("div", { className: "scs_hint" }, __SC_TR__("tpl.desc")),
         (slots ? [
           h(TemplateSlotCard, {
-            slot: "plan", title: __SC_TR__("tpl.planTitle"), desc: __SC_TR__("tpl.planDesc"),
+            key: "plan", slot: "plan", title: __SC_TR__("tpl.planTitle"), desc: __SC_TR__("tpl.planDesc"),
             m: slots.plan || { enabled: false, enforce: false, name: "", url: "", bytes: 0, updatedAt: 0, content: "" },
             busy, edits, importMode, fileRef: fileRefs.plan, MODES: TEMPLATE_MODES,
             onToggle: muts.toggle, onToggleEnforce: muts.toggleEnforce, onOpenImport: imports.openImport, onPickFile: imports.onPickFile, onEdit: muts.onEdit, onSaveEdit: muts.saveEdit, onRemove: muts.onRemove,
             onImportMode: (s, v) => setImportMode((prev) => ({ ...prev, [s]: v })),
           }),
           h(TemplateSlotCard, {
-            slot: "closing", title: __SC_TR__("tpl.closingTitle"), desc: __SC_TR__("tpl.closingDesc"),
+            key: "closing", slot: "closing", title: __SC_TR__("tpl.closingTitle"), desc: __SC_TR__("tpl.closingDesc"),
             m: slots.closing || { enabled: false, enforce: false, name: "", url: "", bytes: 0, updatedAt: 0, content: "" },
             busy, edits, importMode, fileRef: fileRefs.closing, MODES: TEMPLATE_MODES,
             onToggle: muts.toggle, onToggleEnforce: muts.toggleEnforce, onOpenImport: imports.openImport, onPickFile: imports.onPickFile, onEdit: muts.onEdit, onSaveEdit: muts.saveEdit, onRemove: muts.onRemove,
