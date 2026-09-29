@@ -23,6 +23,9 @@ dsh-session-conductor/
 ├── assets/ — 预览页与界面产物
 │   ├── preview-panel.html — 真实后端预览页（面板区块，preview-snapshot.sh 生成）
 │   ├── preview-settings.html — 真实后端预览页（设置区块，preview-snapshot.sh 生成）
+│   ├── screenshots/ — README/市场配图（playwright 自动截图产物）
+│   │   ├── panel.png — 会话管理面板截图
+│   │   ├── settings.png — 模板注入设置页截图
 ├── test/ — 测试
 │   ├── e2e/ — 端到端测试脚本
 │   │   ├── .test — e2e 测试目录审计豁免标记（0 字节）
@@ -62,6 +65,7 @@ dsh-session-conductor/
 │   ├── fix-tool-result-content.py — 修复 tool-result 内容格式
 │   ├── gen-fallback.mjs — fallback 内嵌行生成（i18n.js）
 │   ├── preview-snapshot.sh — 快照版预览生成（自包含，抓真实后端内嵌）
+│   ├── screenshot-preview.mjs — 预览 html 自动截图（playwright chromium，环境 env 覆盖）
 │   ├── validate-session.mjs — 会话文件校验
 │   ├── archived/ — 已删功能的归档脚本
 │   │   ├── keyword-inject.js — 已删关键字注入功能归档
@@ -74,6 +78,7 @@ dsh-session-conductor/
 ├── build.cjs — 浏览器侧分片拼接构建（--check 一致性比对）
 ├── cordis.patch.yml — bundle patch（顶层 insert loader 行）
 ├── package.json — npm 规范清单（1.0.0）
+├── screenshots.json — 市场截图声明（dsh-market 详情页展示 1-8 张）
 ├── tree-doc.json — 文件树注释映射（doc-tree 维护）
 ```
 <!-- dshgp-tree:end -->

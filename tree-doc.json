@@ -91,11 +91,36 @@
   "test/unit/.test": "单测目录审计豁免标记（0 字节）",
   "_meta": {
     "worktree": {
+      "README.md": {
+        "status": "M",
+        "mtime": "2026-09-29T12:45:06.384Z",
+        "note": "注释可能需更新"
+      },
       "docs/FILE-TREE.md": {
         "status": "M",
-        "mtime": "2026-09-27T11:59:14.282Z",
+        "mtime": "2026-09-29T12:45:50.369Z",
+        "note": "注释可能需更新"
+      },
+      "assets/screenshots/": {
+        "status": "A",
+        "mtime": "2026-09-29T12:30:03.639Z",
+        "note": "注释可能需更新"
+      },
+      "screenshots.json": {
+        "status": "A",
+        "mtime": "2026-09-29T12:31:49.661Z",
+        "note": "注释可能需更新"
+      },
+      "tools/screenshot-preview.mjs": {
+        "status": "A",
+        "mtime": "2026-09-29T12:43:37.114Z",
         "note": "注释可能需更新"
       }
     }
-  }
+  },
+  "assets/screenshots": "README/市场配图（playwright 自动截图产物）",
+  "assets/screenshots/panel.png": "会话管理面板截图",
+  "assets/screenshots/settings.png": "模板注入设置页截图",
+  "screenshots.json": "市场截图声明（dsh-market 详情页展示 1-8 张）",
+  "tools/screenshot-preview.mjs": "预览 html 自动截图（playwright chromium，环境 env 覆盖）"
 }
