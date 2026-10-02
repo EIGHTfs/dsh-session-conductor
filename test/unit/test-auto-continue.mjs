@@ -120,7 +120,7 @@ __resetForTest();
   assert.deepEqual(calls.resumeArgs.agentOptions, { provider: "fake-p", model: "fake-m" }, "用会话最近路由");
   assert.equal(calls.followup, 1, "followup 一次");
   assert.ok(String(fakeAgent.lastMessage?.content?.[0]?.text).includes("续跑"), "续跑提示已发送");
-  assert.equal(fakeAgent.lastMessage?.source?.kind, "plugin", "消息来源是插件");
+  assert.equal(fakeAgent.lastMessage?.source?.kind, "plugin:dsh-session-conductor", "消息来源是插件（V4 producer-owned kind）");
   assert.equal(calls.flush, 1, "flush 一次");
   assert.equal(calls.dispose, 1, "dispose 一次（活跃数回落）");
   ok("cold 流程：resume→followup→flush→dispose");
