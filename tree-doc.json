@@ -71,6 +71,7 @@
   "tools/fix-tool-result-content.py": "修复 tool-result 内容格式",
   "tools/gen-fallback.mjs": "fallback 内嵌行生成（i18n.js）",
   "tools/preview-snapshot.sh": "快照版预览生成（自包含，抓真实后端内嵌）",
+  "tools/ensure-cwd-folders.mjs": "一键补齐会话指向的 cwd 文件夹（扫 .dsh/sessions 分组，读会话日志首帧 header.cwd，缺失则 mkdir）",
   "tools/validate-session.mjs": "会话文件校验",
   "tools/vendor": "自备工具副本（预览生成器 + react-umd）",
   "tree-doc.json": "文件树注释映射（doc-tree 维护）",
