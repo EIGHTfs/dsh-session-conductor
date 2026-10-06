@@ -132,7 +132,7 @@ ok('批量分类统计', () => {
   assert.strictEqual(r.completed[0].title, "完成会话");
 });
 
-// ---------- v1.20.0：LLM 高/低价值合成（待办 #2） ----------
+// ---------- LLM 高/低价值合成（待办 #2） ----------
 console.log('\n[5] mapValuePriority（LLM 打分 → 高/低价值）');
 ok('LLM high → high', () => {
   const r = mapValuePriority("active", "high", "独特资产");

@@ -11,6 +11,7 @@ dsh-session-conductor/
 │   ├── repair.js — 损坏会话修复（seq-gap 主流程）
 │   ├── seq-gap-repair.js — seq-gap 损坏修复
 │   ├── session-codec.js — 会话 v3 格式编解码
+│   ├── session-log.js — 会话日志文件定位（v3/v4 文件名兼容：session.jsonl.zstd / session.v4.jsonl.zstd）
 │   ├── template-inject.js — 模板注入（方案/收尾槽位读写、注入文本拼接）
 │   ├── value.js — 价值分析（LLM 分类）
 │   ├── zstd-frames.js — zstd 帧解析/校验
@@ -21,6 +22,7 @@ dsh-session-conductor/
 │   │   ├── en.json — 英文语言包
 │   │   ├── zh.json — 中文语言包
 ├── assets/ — 预览页与界面产物
+│   ├── minihost.sh — 插件服务端本地自检宿主（mini-host 一键启动，改代码刷新即生效，免重启 DSH）
 │   ├── preview-panel.html — 真实后端预览页（面板区块，preview-snapshot.sh 生成）
 │   ├── preview-settings.html — 真实后端预览页（设置区块，preview-snapshot.sh 生成）
 │   ├── screenshots/ — README/市场配图（playwright 自动截图产物）
@@ -41,8 +43,10 @@ dsh-session-conductor/
 │   │   ├── test-group.mjs — 分组单测
 │   │   ├── test-interruption.mjs — 中断检测单测
 │   │   ├── test-list-cache.mjs — 列表缓存单测
+│   │   ├── test-member-model.mjs — 成员模型切换单测（list_models / set_member_model）
 │   │   ├── test-repair.mjs — 修复单测
 │   │   ├── test-search-delete.mjs — 搜索删除单测
+│   │   ├── test-session-log.mjs — 会话日志定位单测（v3/v4/未来命名兼容）
 │   │   ├── test-template-inject.mjs — 模板注入单测
 │   │   ├── test-undo.mjs — 撤回消息 undoLastMessage 单测
 │   │   ├── test-value-real.mjs — 价值分析（真实模型）单测
@@ -62,6 +66,7 @@ dsh-session-conductor/
 │   ├── check-import-refs.mjs — import/导出引用检查
 │   ├── classify.mjs — 价值分析分类脚本
 │   ├── detect-registered-tools.mjs — 检测插件注册的 agent 工具
+│   ├── ensure-cwd-folders.mjs — 一键补齐会话指向的 cwd 文件夹（扫 .dsh/sessions 分组，读会话日志首帧 header.cwd，缺失则 mkdir）
 │   ├── fix-tool-result-content.py — 修复 tool-result 内容格式
 │   ├── gen-fallback.mjs — fallback 内嵌行生成（i18n.js）
 │   ├── preview-snapshot.sh — 快照版预览生成（自包含，抓真实后端内嵌）
@@ -77,7 +82,7 @@ dsh-session-conductor/
 ├── README.md — 项目说明（文件树/版本/函数列表由 git-push doc-* 工具维护）
 ├── build.cjs — 浏览器侧分片拼接构建（--check 一致性比对）
 ├── cordis.patch.yml — bundle patch（顶层 insert loader 行）
-├── package.json — npm 规范清单（1.0.0）
+├── package.json — npm 规范清单（版本号权威源）
 ├── screenshots.json — 市场截图声明（dsh-market 详情页展示 1-8 张）
 ├── tree-doc.json — 文件树注释映射（doc-tree 维护）
 ```

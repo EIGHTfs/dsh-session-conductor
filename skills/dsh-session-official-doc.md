@@ -1,6 +1,6 @@
 ---
 name: dsh-session-official-doc
-description: DSH 官方「会话系统」原理文档整理（来源 https://deepseekdocs.com/docs/learn/core/session，审计基线 0.1.5-alpha.1 @ 5dda764ed3，包名/ctx key/事件名/配置键/磁盘布局与官方源码逐点核对）：事件溯源（日志唯一真源）、surface 派生层、SessionStore(ctx.sessions)/Session 类、request/header 重建、事件信封字段、崩溃恢复与 turn 结束原因、JSONL 持久化与磁盘布局、格式迁移 v0→v3、checkpoint-policy、projection-cache、标题三件套、遥测、损坏与格式策略、验证命令。面向 AI：理解会话怎么被记录/恢复/展示、排查会话打不开/崩溃恢复/磁盘格式问题、开发会话相关插件时加载。⚠️ 官方基线为 v0.1.5-alpha.1；本机 v0.1.2-alpha.4 无 v3 世代后缀，差异见文末。
+description: DSH 官方「会话系统」原理文档整理（来源 https://deepseekdocs.com/docs/learn/core/session，审计基线 0.1.5-alpha.1 @ 5dda764ed3，包名/ctx key/事件名/配置键/磁盘布局与官方源码逐点核对）：事件溯源（日志唯一真源）、surface 派生层、SessionStore(ctx.sessions)/Session 类、request/header 重建、事件信封字段、崩溃恢复与 turn 结束原因、JSONL 持久化与磁盘布局、格式迁移 v0→v3、checkpoint-policy、projection-cache、标题三件套、遥测、损坏与格式策略、验证命令。面向 AI：理解会话怎么被记录/恢复/展示、排查会话打不开/崩溃恢复/磁盘格式问题、开发会话相关插件时加载。⚠️ 官方基线为 -alpha.1；本机 -alpha.4 无 v3 世代后缀，差异见文末。
 whenToUse: 需要理解 DSH 会话系统底层原理（事件溯源/日志格式/surface/持久化/崩溃恢复/迁移）时；排查会话日志打不开、格式版本不识别、崩溃后会话异常时；写会话相关插件或改会话代码时。
 ---
 
@@ -144,7 +144,7 @@ announce(session)     // emit 唯一创建边;重复/重入 announce 拒绝
 | `root` | 无(**必填无默认**) | 会话日志根目录，通常 `$DSH_HOME/sessions` |
 | `compression` | `zstd` | `zstd`(校验帧压缩)或 `none`(纯文本 JSONL) |
 
-### 磁盘布局（官方 v0.1.5 逻辑格式 V3 → 文件名带 `v3`）
+### 磁盘布局（官方  逻辑格式 V3 → 文件名带 `v3`）
 
 ```
 ~/.dsh/sessions/--<归一化cwd>--/<encoded-id>/session.v3.jsonl.zstd   # 当前世代
@@ -235,9 +235,9 @@ zstdcat ~/.dsh/sessions/*/*/session*.jsonl.zstd | grep "request/header" | head -
 zstdcat ~/.dsh/sessions/*/*/session*.jsonl.zstd | grep "turn/end" | tail
 ```
 
-## ⚠️ 本机版本差异（v0.1.2-alpha.4）
+## ⚠️ 本机版本差异（-alpha.4）
 
-官方基线为 **v0.1.5-alpha.1**，本机安装 **v0.1.2-alpha.4**，以下以本机实际为准：
+官方基线为 **-alpha.1**，本机安装 **-alpha.4**，以下以本机实际为准：
 
 1. **磁盘布局无世代后缀**：本机会话目录文件是 `session.jsonl.zstd`（官方 V3 为 `session.v3.jsonl.zstd`）；`projectKey(cwd)` 生成 `--<slug>--` 目录（`工作区` → `~5DE5~4F5C~533A` 转义），会话 id 经 `encodeSegment` 转义为 `~<4-hex>` 形式
 2. **无 v0→v3 世代迁移**：本机无 `session.v1/v2/v3` 世代文件与对应迁移包；格式仍是 released v0（`SESSION_FORMAT_VERSION = 0`）

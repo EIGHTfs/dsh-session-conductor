@@ -3,11 +3,11 @@
 <!-- dshgp-functions:start -->
 ## 函数列表
 
-### lib/client-parts/apply.js（44 行 · 1 个函数）
+### lib/client-parts/apply.js（47 行 · 1 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
-| `apply` | 1-25 | 25 | `function apply(ctx) {` |
+| `apply` | 1-28 | 28 | `function apply(ctx) {` |
 
 ### lib/client-parts/components/compaction.js（121 行 · 3 个函数）
 
@@ -33,11 +33,11 @@
 | `createIn` | 49-65 | 17 | `const createIn = async (workspaceId) => {` |
 | `apply` | 84-97 | 14 | `function apply(ctx) {` |
 
-### lib/client-parts/components/panel.js（1247 行 · 25 个函数）
+### lib/client-parts/components/panel.js（1250 行 · 25 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
-| `SessionManagerPanel` | 1-1245 | 1245 | `function SessionManagerPanel({ wide, t, onOpenSession }) {` |
+| `SessionManagerPanel` | 1-1248 | 1248 | `function SessionManagerPanel({ wide, t, onOpenSession }) {` |
 | `insertSorted` | 24-30 | 7 | `const insertSorted = (cur, item) => {` |
 | `act` | 88-118 | 31 | `const act = async (sessionId, action) => {` |
 | `confirmDelete` | 120-124 | 5 | `const confirmDelete = (session) => {` |
@@ -50,18 +50,18 @@
 | `toggleAutoContinue` | 319-335 | 17 | `const toggleAutoContinue = async (sessionId, enabled) => {` |
 | `releaseNow` | 337-356 | 20 | `const releaseNow = async (sessionId) => {` |
 | `releaseAll` | 358-383 | 26 | `const releaseAll = async () => {` |
-| `continueNow` | 385-409 | 25 | `const continueNow = async (sessionId) => {` |
-| `runFullSearch` | 412-452 | 41 | `const runFullSearch = async (keyword) => {` |
-| `deleteSelected` | 455-479 | 25 | `const deleteSelected = async () => {` |
-| `previewLocally` | 484-513 | 30 | `const previewLocally = () => {` |
-| `previewRuleDelete` | 515-553 | 39 | `const previewRuleDelete = async () => {` |
-| `runRuleDelete` | 555-592 | 38 | `const runRuleDelete = async () => {` |
-| `matchesQuery` | 597-606 | 10 | `const matchesQuery = (row) => {` |
-| `groupByWorkspace` | 617-638 | 22 | `const groupByWorkspace = (list) => {` |
-| `norm` | 619-619 | 1 | `const norm = (p) => String(p ?? "").replace(/\/+$/, "");` |
-| `groupByArchiveWs` | 642-657 | 16 | `const groupByArchiveWs = (list) => {` |
-| `toggleCollapse` | 661-668 | 8 | `const toggleCollapse = (key) => {` |
-| `renderRow` | 670-850 | 181 | `const renderRow = (session) => {` |
+| `continueNow` | 385-411 | 27 | `const continueNow = async (sessionId) => {` |
+| `runFullSearch` | 415-455 | 41 | `const runFullSearch = async (keyword) => {` |
+| `deleteSelected` | 458-482 | 25 | `const deleteSelected = async () => {` |
+| `previewLocally` | 487-516 | 30 | `const previewLocally = () => {` |
+| `previewRuleDelete` | 518-556 | 39 | `const previewRuleDelete = async () => {` |
+| `runRuleDelete` | 558-595 | 38 | `const runRuleDelete = async () => {` |
+| `matchesQuery` | 600-609 | 10 | `const matchesQuery = (row) => {` |
+| `groupByWorkspace` | 620-641 | 22 | `const groupByWorkspace = (list) => {` |
+| `norm` | 622-622 | 1 | `const norm = (p) => String(p ?? "").replace(/\/+$/, "");` |
+| `groupByArchiveWs` | 645-660 | 16 | `const groupByArchiveWs = (list) => {` |
+| `toggleCollapse` | 664-671 | 8 | `const toggleCollapse = (key) => {` |
+| `renderRow` | 673-853 | 181 | `const renderRow = (session) => {` |
 
 ### lib/client-parts/components/processing.js（94 行 · 3 个函数）
 
@@ -103,12 +103,12 @@
 | `save` | 326-346 | 21 | `const save = async (next) => {` |
 | `ConductorSettingsPage` | 400-414 | 15 | `function ConductorSettingsPage() {` |
 
-### lib/client-parts/foundation/bootstrap.js（41 行 · 2 个函数）
+### lib/client-parts/foundation/bootstrap.js（52 行 · 2 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
-| `basenameOf` | 18-23 | 6 | `function basenameOf(p) {` |
-| `timeAgo` | 25-39 | 15 | `function timeAgo(ms, t) {` |
+| `basenameOf` | 29-34 | 6 | `function basenameOf(p) {` |
+| `timeAgo` | 36-50 | 15 | `function timeAgo(ms, t) {` |
 
 ### lib/client-parts/foundation/i18n.js（75 行 · 1 个函数）
 
@@ -123,75 +123,75 @@
 | `readListCache` | 2-11 | 10 | `function readListCache() {` |
 | `writeListCache` | 12-18 | 7 | `function writeListCache(sessions) {` |
 
-### lib/client.js（2425 行 · 65 个函数）
+### lib/client.js（2442 行 · 65 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
 | `fill` | 40-43 | 4 | `const fill = () => {` |
-| `basenameOf` | 92-97 | 6 | `function basenameOf(p) {` |
-| `timeAgo` | 99-113 | 15 | `function timeAgo(ms, t) {` |
-| `readListCache` | 299-308 | 10 | `function readListCache() {` |
-| `writeListCache` | 309-315 | 7 | `function writeListCache(sessions) {` |
-| `SessionIcon` | 318-329 | 12 | `function SessionIcon(props) {` |
-| `SessionManagerPanel` | 331-1575 | 1245 | `function SessionManagerPanel({ wide, t, onOpenSession }) {` |
-| `insertSorted` | 354-360 | 7 | `const insertSorted = (cur, item) => {` |
-| `act` | 418-448 | 31 | `const act = async (sessionId, action) => {` |
-| `confirmDelete` | 450-454 | 5 | `const confirmDelete = (session) => {` |
-| `undoLast` | 457-485 | 29 | `const undoLast = async (session) => {` |
-| `toggleAutoRename` | 488-509 | 22 | `const toggleAutoRename = async (sessionId, enabled) => {` |
-| `analyzeNow` | 511-533 | 23 | `const analyzeNow = async (sessionId) => {` |
-| `scanAndRepair` | 536-568 | 33 | `const scanAndRepair = async () => {` |
-| `scanAndRepairEio` | 575-607 | 33 | `const scanAndRepairEio = async () => {` |
-| `scanAndRepairDual` | 614-646 | 33 | `const scanAndRepairDual = async () => {` |
-| `toggleAutoContinue` | 649-665 | 17 | `const toggleAutoContinue = async (sessionId, enabled) => {` |
-| `releaseNow` | 667-686 | 20 | `const releaseNow = async (sessionId) => {` |
-| `releaseAll` | 688-713 | 26 | `const releaseAll = async () => {` |
-| `continueNow` | 715-739 | 25 | `const continueNow = async (sessionId) => {` |
-| `runFullSearch` | 742-782 | 41 | `const runFullSearch = async (keyword) => {` |
-| `deleteSelected` | 785-809 | 25 | `const deleteSelected = async () => {` |
-| `previewLocally` | 814-843 | 30 | `const previewLocally = () => {` |
-| `previewRuleDelete` | 845-883 | 39 | `const previewRuleDelete = async () => {` |
-| `runRuleDelete` | 885-922 | 38 | `const runRuleDelete = async () => {` |
-| `matchesQuery` | 927-936 | 10 | `const matchesQuery = (row) => {` |
-| `groupByWorkspace` | 947-968 | 22 | `const groupByWorkspace = (list) => {` |
-| `norm` | 949-949 | 1 | `const norm = (p) => String(p ?? "").replace(/\/+$/, "");` |
-| `groupByArchiveWs` | 972-987 | 16 | `const groupByArchiveWs = (list) => {` |
-| `toggleCollapse` | 991-998 | 8 | `const toggleCollapse = (key) => {` |
-| `renderRow` | 1000-1180 | 181 | `const renderRow = (session) => {` |
-| `ensureSettingsCss` | 1621-1629 | 9 | `function ensureSettingsCss() {` |
-| `trSettings` | 1631-1634 | 4 | `function trSettings(key) {` |
-| `TemplateSlotCard` | 1637-1670 | 34 | `function TemplateSlotCard(props) {` |
-| `TemplatePickerModal` | 1673-1704 | 32 | `function TemplatePickerModal(props) {` |
-| `useTemplateFetch` | 1712-1734 | 23 | `function useTemplateFetch(st) {` |
-| `useTemplateImports` | 1737-1786 | 50 | `function useTemplateImports(st, post) {` |
-| `slotLabel` | 1738-1738 | 1 | `const slotLabel = (slot) => (slot === "plan" ? __SC_TR__("tpl.planShort") : __SC_TR__("tpl.closingShort"));` |
-| `onPickFile` | 1739-1749 | 11 | `const onPickFile = (slot, event) => {` |
-| `openImport` | 1750-1768 | 19 | `const openImport = (slot) => {` |
-| `browseDir` | 1769-1777 | 9 | `const browseDir = (path) => {` |
-| `importTemplate` | 1778-1784 | 7 | `const importTemplate = (slot, mode, value) => {` |
-| `useTemplateMutations` | 1789-1827 | 39 | `function useTemplateMutations(st, post, slotLabel) {` |
-| `toggle` | 1790-1796 | 7 | `const toggle = (slot, enabled) => {` |
-| `toggleEnforce` | 1797-1803 | 7 | `const toggleEnforce = (enforce) => {` |
-| `onEdit` | 1804-1809 | 6 | `const onEdit = (slot, el) => {` |
-| `saveEdit` | 1810-1818 | 9 | `const saveEdit = (slot) => {` |
-| `onRemove` | 1819-1825 | 7 | `const onRemove = (slot) => {` |
-| `MainTemplateSection` | 1829-1870 | 42 | `function MainTemplateSection() {` |
-| `AutoRenameModelSection` | 1877-1955 | 79 | `function AutoRenameModelSection() {` |
-| `save` | 1902-1922 | 21 | `const save = async (next) => {` |
-| `ConductorSettingsPage` | 1976-1990 | 15 | `function ConductorSettingsPage() {` |
-| `apply` | 1992-2016 | 25 | `function apply(ctx) {` |
-| `SessionGroupCard` | 2073-2116 | 44 | `function SessionGroupCard({ t }) {` |
-| `load` | 2077-2081 | 5 | `const load = () => {` |
-| `createIn` | 2083-2099 | 17 | `const createIn = async (workspaceId) => {` |
-| `apply` | 2118-2131 | 14 | `function apply(ctx) {` |
-| `activeUserText` | 2183-2198 | 16 | `function activeUserText(nodes) {` |
-| `ProcessingBar` | 2200-2219 | 20 | `function ProcessingBar({ useSession, t }) {` |
-| `apply` | 2221-2229 | 9 | `function apply(ctx) {` |
-| `CompactionModelCard` | 2274-2332 | 59 | `function CompactionModelCard({ t }) {` |
-| `save` | 2295-2310 | 16 | `const save = async () => {` |
-| `apply` | 2334-2347 | 14 | `function apply(ctx) {` |
-| `ScsPage` | 2399-2411 | 13 | `function ScsPage({ t }) {` |
-| `apply` | 2413-2417 | 5 | `function apply(ctx) {` |
+| `basenameOf` | 103-108 | 6 | `function basenameOf(p) {` |
+| `timeAgo` | 110-124 | 15 | `function timeAgo(ms, t) {` |
+| `readListCache` | 310-319 | 10 | `function readListCache() {` |
+| `writeListCache` | 320-326 | 7 | `function writeListCache(sessions) {` |
+| `SessionIcon` | 329-340 | 12 | `function SessionIcon(props) {` |
+| `SessionManagerPanel` | 342-1589 | 1248 | `function SessionManagerPanel({ wide, t, onOpenSession }) {` |
+| `insertSorted` | 365-371 | 7 | `const insertSorted = (cur, item) => {` |
+| `act` | 429-459 | 31 | `const act = async (sessionId, action) => {` |
+| `confirmDelete` | 461-465 | 5 | `const confirmDelete = (session) => {` |
+| `undoLast` | 468-496 | 29 | `const undoLast = async (session) => {` |
+| `toggleAutoRename` | 499-520 | 22 | `const toggleAutoRename = async (sessionId, enabled) => {` |
+| `analyzeNow` | 522-544 | 23 | `const analyzeNow = async (sessionId) => {` |
+| `scanAndRepair` | 547-579 | 33 | `const scanAndRepair = async () => {` |
+| `scanAndRepairEio` | 586-618 | 33 | `const scanAndRepairEio = async () => {` |
+| `scanAndRepairDual` | 625-657 | 33 | `const scanAndRepairDual = async () => {` |
+| `toggleAutoContinue` | 660-676 | 17 | `const toggleAutoContinue = async (sessionId, enabled) => {` |
+| `releaseNow` | 678-697 | 20 | `const releaseNow = async (sessionId) => {` |
+| `releaseAll` | 699-724 | 26 | `const releaseAll = async () => {` |
+| `continueNow` | 726-752 | 27 | `const continueNow = async (sessionId) => {` |
+| `runFullSearch` | 756-796 | 41 | `const runFullSearch = async (keyword) => {` |
+| `deleteSelected` | 799-823 | 25 | `const deleteSelected = async () => {` |
+| `previewLocally` | 828-857 | 30 | `const previewLocally = () => {` |
+| `previewRuleDelete` | 859-897 | 39 | `const previewRuleDelete = async () => {` |
+| `runRuleDelete` | 899-936 | 38 | `const runRuleDelete = async () => {` |
+| `matchesQuery` | 941-950 | 10 | `const matchesQuery = (row) => {` |
+| `groupByWorkspace` | 961-982 | 22 | `const groupByWorkspace = (list) => {` |
+| `norm` | 963-963 | 1 | `const norm = (p) => String(p ?? "").replace(/\/+$/, "");` |
+| `groupByArchiveWs` | 986-1001 | 16 | `const groupByArchiveWs = (list) => {` |
+| `toggleCollapse` | 1005-1012 | 8 | `const toggleCollapse = (key) => {` |
+| `renderRow` | 1014-1194 | 181 | `const renderRow = (session) => {` |
+| `ensureSettingsCss` | 1635-1643 | 9 | `function ensureSettingsCss() {` |
+| `trSettings` | 1645-1648 | 4 | `function trSettings(key) {` |
+| `TemplateSlotCard` | 1651-1684 | 34 | `function TemplateSlotCard(props) {` |
+| `TemplatePickerModal` | 1687-1718 | 32 | `function TemplatePickerModal(props) {` |
+| `useTemplateFetch` | 1726-1748 | 23 | `function useTemplateFetch(st) {` |
+| `useTemplateImports` | 1751-1800 | 50 | `function useTemplateImports(st, post) {` |
+| `slotLabel` | 1752-1752 | 1 | `const slotLabel = (slot) => (slot === "plan" ? __SC_TR__("tpl.planShort") : __SC_TR__("tpl.closingShort"));` |
+| `onPickFile` | 1753-1763 | 11 | `const onPickFile = (slot, event) => {` |
+| `openImport` | 1764-1782 | 19 | `const openImport = (slot) => {` |
+| `browseDir` | 1783-1791 | 9 | `const browseDir = (path) => {` |
+| `importTemplate` | 1792-1798 | 7 | `const importTemplate = (slot, mode, value) => {` |
+| `useTemplateMutations` | 1803-1841 | 39 | `function useTemplateMutations(st, post, slotLabel) {` |
+| `toggle` | 1804-1810 | 7 | `const toggle = (slot, enabled) => {` |
+| `toggleEnforce` | 1811-1817 | 7 | `const toggleEnforce = (enforce) => {` |
+| `onEdit` | 1818-1823 | 6 | `const onEdit = (slot, el) => {` |
+| `saveEdit` | 1824-1832 | 9 | `const saveEdit = (slot) => {` |
+| `onRemove` | 1833-1839 | 7 | `const onRemove = (slot) => {` |
+| `MainTemplateSection` | 1843-1884 | 42 | `function MainTemplateSection() {` |
+| `AutoRenameModelSection` | 1891-1969 | 79 | `function AutoRenameModelSection() {` |
+| `save` | 1916-1936 | 21 | `const save = async (next) => {` |
+| `ConductorSettingsPage` | 1990-2004 | 15 | `function ConductorSettingsPage() {` |
+| `apply` | 2006-2033 | 28 | `function apply(ctx) {` |
+| `SessionGroupCard` | 2090-2133 | 44 | `function SessionGroupCard({ t }) {` |
+| `load` | 2094-2098 | 5 | `const load = () => {` |
+| `createIn` | 2100-2116 | 17 | `const createIn = async (workspaceId) => {` |
+| `apply` | 2135-2148 | 14 | `function apply(ctx) {` |
+| `activeUserText` | 2200-2215 | 16 | `function activeUserText(nodes) {` |
+| `ProcessingBar` | 2217-2236 | 20 | `function ProcessingBar({ useSession, t }) {` |
+| `apply` | 2238-2246 | 9 | `function apply(ctx) {` |
+| `CompactionModelCard` | 2291-2349 | 59 | `function CompactionModelCard({ t }) {` |
+| `save` | 2312-2327 | 16 | `const save = async () => {` |
+| `apply` | 2351-2364 | 14 | `function apply(ctx) {` |
+| `ScsPage` | 2416-2428 | 13 | `function ScsPage({ t }) {` |
+| `apply` | 2430-2434 | 5 | `function apply(ctx) {` |
 
 ### lib/core.js（83 行 · 3 个函数）
 
@@ -201,16 +201,16 @@
 | `checkCompletionText` | 56-78 | 23 | `export function checkCompletionText(text) {` |
 | `hasText` | 80-82 | 3 | `function hasText(value) {` |
 
-### lib/eio-repair.js（203 行 · 6 个函数）
+### lib/eio-repair.js（204 行 · 6 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
-| `probeEioBoundary` | 38-61 | 24 | `export async function probeEioBoundary(filePath) {` |
-| `scanEioSessions` | 69-98 | 30 | `export async function scanEioSessions(sessionsRoot, { fast = false } = {}) {` |
-| `repairEioFile` | 107-157 | 51 | `export async function repairEioFile(filePath, { dryRun = false, backupDir } = {}) {` |
-| `repairEioSessions` | 160-188 | 29 | `export async function repairEioSessions({ dryRun = false, fast = false } = {}) {` |
-| `writeAll` | 191-198 | 8 | `function writeAll(fd, buffer) {` |
-| `sessionsRootOf` | 201-203 | 3 | `export function sessionsRootOf() {` |
+| `probeEioBoundary` | 39-62 | 24 | `export async function probeEioBoundary(filePath) {` |
+| `scanEioSessions` | 70-99 | 30 | `export async function scanEioSessions(sessionsRoot, { fast = false } = {}) {` |
+| `repairEioFile` | 108-158 | 51 | `export async function repairEioFile(filePath, { dryRun = false, backupDir } = {}) {` |
+| `repairEioSessions` | 161-189 | 29 | `export async function repairEioSessions({ dryRun = false, fast = false } = {}) {` |
+| `writeAll` | 192-199 | 8 | `function writeAll(fd, buffer) {` |
+| `sessionsRootOf` | 202-204 | 3 | `export function sessionsRootOf() {` |
 
 ### lib/group.js（277 行 · 9 个函数）
 
@@ -226,131 +226,142 @@
 | `lastSessionCwd` | 112-136 | 25 | `async function lastSessionCwd(ctx) {` |
 | `registerGroupRoutes` | 148-273 | 126 | `export async function registerGroupRoutes(ctx, config = {}, hooks = {}) {` |
 
-### lib/index.js（3850 行 · 93 个函数）
+### lib/index.js（4348 行 · 104 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
-| `collectSessionTitleMessages` | 77-92 | 16 | `function collectSessionTitleMessages(events, throughSeq) {` |
-| `hasApiRemoteSubagentOwner` | 96-108 | 13 | `function hasApiRemoteSubagentOwner(ctx, session, agent) {` |
-| `resolveSessionPreset` | 112-120 | 9 | `function resolveSessionPreset({ header, events } = {}) {` |
-| `lazyRepair` | 127-127 | 1 | `const lazyRepair = () => (_lazyRepair ??= import("./repair.js"));` |
-| `lazyZstd` | 128-128 | 1 | `const lazyZstd = () => (_lazyZstd ??= import("./zstd-frames.js"));` |
-| `lazySeqGap` | 129-129 | 1 | `const lazySeqGap = () => (_lazySeqGap ??= import("./seq-gap-repair.js"));` |
-| `lazyEio` | 130-130 | 1 | `const lazyEio = () => (_lazyEio ??= import("./eio-repair.js"));` |
-| `lazyValue` | 131-131 | 1 | `const lazyValue = () => (_lazyValue ??= import("./value.js"));` |
-| `num` | 172-174 | 3 | `function num(v, min, max, dflt) {` |
-| `send` | 261-264 | 4 | `function send(res, status, body) {` |
-| `readJson` | 267-272 | 6 | `async function readJson(req) {` |
-| `foldTitle` | 276-285 | 10 | `function foldTitle(events) {` |
-| `workspaceNameOf` | 292-309 | 18 | `function workspaceNameOf(ctx, cwd) {` |
-| `archiveTitleWithWs` | 312-318 | 7 | `function archiveTitleWithWs(title, ws) {` |
-| `stripArchiveWsPrefix` | 321-326 | 6 | `function stripArchiveWsPrefix(title) {` |
-| `hasOpenTurn` | 329-337 | 9 | `function hasOpenTurn(events) {` |
-| `lastEventTime` | 340-343 | 4 | `function lastEventTime(events) {` |
-| `titleString` | 349-353 | 5 | `function titleString(snapshot) {` |
-| `sessionEventList` | 356-365 | 10 | `function sessionEventList(session) {` |
-| `resolveSessionTitle` | 368-378 | 11 | `function resolveSessionTitle(sessionTitle, session, events) {` |
-| `pluginDomain` | 388-416 | 29 | `function pluginDomain(ctx) {` |
-| `pluginState` | 418-421 | 4 | `async function pluginState(ctx) {` |
-| `installProcessGuards` | 431-445 | 15 | `function installProcessGuards(ctx) {` |
-| `pluginConfigPath` | 457-460 | 4 | `function pluginConfigPath(ctx) {` |
-| `readSwitch` | 463-466 | 4 | `function readSwitch(group, sessionId) {` |
-| `patchSwitch` | 470-478 | 9 | `export async function patchSwitch(ctx, group, sessionId, patch, defaultEntry = {}) {` |
-| `loadPluginConfig` | 481-495 | 15 | `export async function loadPluginConfig(ctx) {` |
-| `savePluginConfig` | 498-514 | 17 | `export async function savePluginConfig(ctx) {` |
-| `resetAutoContinueOnStart` | 517-525 | 9 | `export async function resetAutoContinueOnStart(ctx) {` |
-| `autoRenameEnabled` | 528-530 | 3 | `function autoRenameEnabled(ctx, state, sessionId) {` |
-| `effectiveAutoContinue` | 533-536 | 4 | `function effectiveAutoContinue(cfg, state, sessionId) {` |
-| `scheduleAnalysis` | 544-555 | 12 | `function scheduleAnalysis(ctx, sessionId) {` |
-| `runAnalysis` | 558-568 | 11 | `async function runAnalysis(ctx, sessionId, opts = {}) {` |
-| `resolveModelOverride` | 575-600 | 26 | `export async function resolveModelOverride(ctx, modelArg, fallbackRoute) {` |
-| `analyzeSession` | 609-687 | 79 | `async function analyzeSession(ctx, sessionId, opts = {}) {` |
-| `resolveRoute` | 694-705 | 12 | `export function resolveRoute(session, llm, state) {` |
-| `driftAnalysisLlm` | 721-778 | 58 | `export async function driftAnalysisLlm(llm, session, route, currentTitle, recent, onError, forceTitle = false) {` |
-| `extractTitleOnly` | 781-794 | 14 | `function extractTitleOnly(raw) {` |
-| `analyzeValueWithLlm` | 807-846 | 40 | `export async function analyzeValueWithLlm(ctx, sessions, texts, onError) {` |
-| `parseValueJson` | 849-860 | 12 | `export function parseValueJson(raw) {` |
-| `parseDriftJson` | 864-878 | 15 | `export function parseDriftJson(raw) {` |
-| `interruptionInfo` | 887-926 | 40 | `export function interruptionInfo(events) {` |
-| `isAutoEligible` | 940-946 | 7 | `export function isAutoEligible(info, { live = false } = {}) {` |
-| `stateSuffixOf` | 953-958 | 6 | `export function stateSuffixOf(events) {` |
-| `stripTitleStateSuffix` | 961-963 | 3 | `export function stripTitleStateSuffix(title) {` |
-| `refreshTitleState` | 971-989 | 19 | `export async function refreshTitleState(ctx, session) {` |
-| `autoContinueEffectiveForRun` | 1002-1005 | 4 | `export function autoContinueEffectiveForRun(cfg, state, sessionId) {` |
-| `continueAllowed` | 1008-1021 | 14 | `function continueAllowed(cfg, state, sessionId, info) {` |
-| `sessionEventsOf` | 1024-1034 | 11 | `async function sessionEventsOf(ctx, sessionId) {` |
-| `readColdSessionEvents` | 1044-1057 | 14 | `async function readColdSessionEvents(ctx, sessionId) {` |
-| `foldLastRoute` | 1060-1078 | 19 | `export function foldLastRoute(events) {` |
-| `buildContinuePrompt` | 1081-1095 | 15 | `export function buildContinuePrompt(info) {` |
-| `withDeleteLock` | 1106-1116 | 11 | `function withDeleteLock(sessionId, fn) {` |
-| `cancelSessionTimers` | 1119-1131 | 13 | `function cancelSessionTimers(sessionId) {` |
-| `withSessionLock` | 1134-1144 | 11 | `function withSessionLock(sessionId, fn) {` |
-| `withConcurrencyGate` | 1147-1157 | 11 | `async function withConcurrencyGate(fn) {` |
-| `continueSession` | 1166-1283 | 118 | `export async function continueSession(ctx, sessionId, { auto = false } = {}) {` |
-| `waitTurn` | 1286-1305 | 20 | `async function waitTurn(ctx, agent) {` |
-| `sendMessageToSession` | 1319-1371 | 53 | `export async function sendMessageToSession(ctx, sessionId, text, { fromSessionId = "" } = {}) {` |
-| `defaultModelSelection` | 1374-1382 | 9 | `function defaultModelSelection(ctx) {` |
-| `resumeSetupFor` | 1385-1413 | 29 | `async function resumeSetupFor(ctx, meta, events, route) {` |
-| `maybeScheduleContinue` | 1416-1428 | 13 | `function maybeScheduleContinue(ctx, sessionId) {` |
-| `runAutoContinueSession` | 1435-1459 | 25 | `async function runAutoContinueSession(ctx, sessionId, { force = false } = {}) {` |
-| `runAutoScan` | 1462-1508 | 47 | `async function runAutoScan(ctx) {` |
-| `scheduleScan` | 1510-1520 | 11 | `function scheduleScan(ctx) {` |
-| `detachSessionAgent` | 1532-1598 | 67 | `export async function detachSessionAgent(ctx, sessionId) {` |
-| `detachAllIdleSessions` | 1601-1626 | 26 | `export async function detachAllIdleSessions(ctx) {` |
-| `listCacheFilePath` | 1656-1661 | 6 | `function listCacheFilePath(ctx) {` |
-| `loadListDiskCache` | 1664-1678 | 15 | `function loadListDiskCache(ctx) {` |
-| `scheduleSaveListDiskCache` | 1681-1689 | 9 | `function scheduleSaveListDiskCache(ctx) {` |
-| `saveListDiskCacheNow` | 1692-1706 | 15 | `function saveListDiskCacheNow(ctx) {` |
-| `buildColdSessionItem` | 1710-1733 | 24 | `function buildColdSessionItem(header, inspected, derived, ctx, storeState, archived) {` |
-| `invalidateSessionListCache` | 1750-1753 | 4 | `function invalidateSessionListCache() {` |
-| `buildSessionListCached` | 1760-1778 | 19 | `async function buildSessionListCached(ctx, { force = false, onItem = null, serial = false } = {}) {` |
-| `buildSessionList` | 1784-1928 | 145 | `async function buildSessionList(ctx, opts = {}) { // dsh-skip-func-length` |
-| `unarchiveSession` | 1937-1946 | 10 | `async function unarchiveSession(ctx, sessionId) {` |
-| `deleteSession` | 1950-2018 | 69 | `export async function deleteSession(ctx, sessionId) {` |
-| `undoLastMessage` | 2035-2143 | 109 | `export async function undoLastMessage(ctx, sessionId, { dryRun = false } = {}) {` |
-| `collectSearchableEvents` | 2158-2195 | 38 | `export function collectSearchableEvents(events) {` |
-| `searchEventsText` | 2201-2217 | 17 | `export function searchEventsText(events, query, { perSessionMax = SEARCH_PER_SESSION_MAX, previewLen = SEARCH_PREVIEW_LEN } = {}) {` |
-| `searchSessions` | 2224-2255 | 32 | `export async function searchSessions(ctx, query, { scope = "all", maxSessions = SEARCH_MAX_SESSIONS, perSessionMax = SEARCH_PER_SESSION_MAX } = {}) {` |
-| `deleteBatchSessions` | 2262-2303 | 42 | `export async function deleteBatchSessions(ctx, sessionIds) {` |
-| `deleteByRule` | 2311-2367 | 57 | `export async function deleteByRule(ctx, { archivedOnly = false, inactiveDays = 0, cwdPrefix = "", lowValue = false, dryRun = false } = {}) {` |
-| `resolveDshHome` | 2378-2382 | 5 | `function resolveDshHome(ctx, c) {` |
-| `resolveBrowseRoot` | 2390-2397 | 8 | `function resolveBrowseRoot(ctx, c) {` |
-| `__setConfigForTest` | 2400-2421 | 22 | `export function __setConfigForTest(partial = {}) {` |
-| `__timersForTest` | 2424-2425 | 2 | `export function __timersForTest() {` |
-| `__switchConfigForTest` | 2429-2431 | 3 | `export function __switchConfigForTest() {` |
-| `__resetForTest` | 2434-2458 | 25 | `export function __resetForTest() {` |
-| `apply` | 2471-3841 | 1371 | `export async function apply(ctx, config = {}) {` |
-| `servePreview` | 2649-2662 | 14 | `const servePreview = async (req, res, name) => {` |
-| `buildSlotsWithContent` | 2734-2746 | 13 | `const buildSlotsWithContent = (meta2) => {` |
-| `log` | 3843-3849 | 7 | `function log(ctx, message) {` |
+| `collectSessionTitleMessages` | 79-94 | 16 | `function collectSessionTitleMessages(events, throughSeq) {` |
+| `hasApiRemoteSubagentOwner` | 98-110 | 13 | `function hasApiRemoteSubagentOwner(ctx, session, agent) {` |
+| `resolveSessionPreset` | 114-122 | 9 | `function resolveSessionPreset({ header, events } = {}) {` |
+| `lazyRepair` | 129-129 | 1 | `const lazyRepair = () => (_lazyRepair ??= import("./repair.js"));` |
+| `lazyZstd` | 130-130 | 1 | `const lazyZstd = () => (_lazyZstd ??= import("./zstd-frames.js"));` |
+| `lazySeqGap` | 131-131 | 1 | `const lazySeqGap = () => (_lazySeqGap ??= import("./seq-gap-repair.js"));` |
+| `lazyEio` | 132-132 | 1 | `const lazyEio = () => (_lazyEio ??= import("./eio-repair.js"));` |
+| `lazyValue` | 133-133 | 1 | `const lazyValue = () => (_lazyValue ??= import("./value.js"));` |
+| `num` | 174-176 | 3 | `function num(v, min, max, dflt) {` |
+| `send` | 271-274 | 4 | `function send(res, status, body) {` |
+| `readJson` | 277-282 | 6 | `async function readJson(req) {` |
+| `foldTitle` | 286-295 | 10 | `function foldTitle(events) {` |
+| `workspaceNameOf` | 302-319 | 18 | `function workspaceNameOf(ctx, cwd) {` |
+| `archiveTitleWithWs` | 322-328 | 7 | `function archiveTitleWithWs(title, ws) {` |
+| `stripArchiveWsPrefix` | 331-336 | 6 | `function stripArchiveWsPrefix(title) {` |
+| `hasOpenTurn` | 339-347 | 9 | `function hasOpenTurn(events) {` |
+| `lastEventTime` | 350-353 | 4 | `function lastEventTime(events) {` |
+| `titleString` | 359-363 | 5 | `function titleString(snapshot) {` |
+| `sessionEventList` | 366-375 | 10 | `function sessionEventList(session) {` |
+| `resolveSessionTitle` | 378-388 | 11 | `function resolveSessionTitle(sessionTitle, session, events) {` |
+| `pluginDomain` | 398-426 | 29 | `function pluginDomain(ctx) {` |
+| `pluginState` | 428-431 | 4 | `async function pluginState(ctx) {` |
+| `installProcessGuards` | 441-455 | 15 | `function installProcessGuards(ctx) {` |
+| `pluginConfigPath` | 467-470 | 4 | `function pluginConfigPath(ctx) {` |
+| `readSwitch` | 473-476 | 4 | `function readSwitch(group, sessionId) {` |
+| `patchSwitch` | 480-488 | 9 | `export async function patchSwitch(ctx, group, sessionId, patch, defaultEntry = {}) {` |
+| `loadPluginConfig` | 491-505 | 15 | `export async function loadPluginConfig(ctx) {` |
+| `savePluginConfig` | 508-524 | 17 | `export async function savePluginConfig(ctx) {` |
+| `resetAutoContinueOnStart` | 527-535 | 9 | `export async function resetAutoContinueOnStart(ctx) {` |
+| `autoRenameEnabled` | 538-540 | 3 | `function autoRenameEnabled(ctx, state, sessionId) {` |
+| `effectiveAutoContinue` | 543-546 | 4 | `function effectiveAutoContinue(cfg, state, sessionId) {` |
+| `scheduleAnalysis` | 554-565 | 12 | `function scheduleAnalysis(ctx, sessionId) {` |
+| `runAnalysis` | 568-578 | 11 | `async function runAnalysis(ctx, sessionId, opts = {}) {` |
+| `resolveModelOverride` | 585-610 | 26 | `export async function resolveModelOverride(ctx, modelArg, fallbackRoute) {` |
+| `analyzeSession` | 619-697 | 79 | `async function analyzeSession(ctx, sessionId, opts = {}) {` |
+| `resolveRoute` | 704-715 | 12 | `export function resolveRoute(session, llm, state) {` |
+| `driftAnalysisLlm` | 731-788 | 58 | `export async function driftAnalysisLlm(llm, session, route, currentTitle, recent, onError, forceTitle = false) {` |
+| `extractTitleOnly` | 791-804 | 14 | `function extractTitleOnly(raw) {` |
+| `analyzeValueWithLlm` | 817-856 | 40 | `export async function analyzeValueWithLlm(ctx, sessions, texts, onError) {` |
+| `parseValueJson` | 859-870 | 12 | `export function parseValueJson(raw) {` |
+| `parseDriftJson` | 874-888 | 15 | `export function parseDriftJson(raw) {` |
+| `interruptionInfo` | 897-936 | 40 | `export function interruptionInfo(events) {` |
+| `isAutoEligible` | 950-956 | 7 | `export function isAutoEligible(info, { live = false } = {}) {` |
+| `stateSuffixOf` | 963-968 | 6 | `export function stateSuffixOf(events) {` |
+| `stripTitleStateSuffix` | 971-973 | 3 | `export function stripTitleStateSuffix(title) {` |
+| `refreshTitleState` | 981-999 | 19 | `export async function refreshTitleState(ctx, session) {` |
+| `autoContinueEffectiveForRun` | 1012-1015 | 4 | `export function autoContinueEffectiveForRun(cfg, state, sessionId) {` |
+| `continueAllowed` | 1018-1031 | 14 | `function continueAllowed(cfg, state, sessionId, info) {` |
+| `sessionEventsOf` | 1034-1044 | 11 | `async function sessionEventsOf(ctx, sessionId) {` |
+| `readColdSessionEvents` | 1054-1067 | 14 | `async function readColdSessionEvents(ctx, sessionId) {` |
+| `foldLastRoute` | 1070-1088 | 19 | `export function foldLastRoute(events) {` |
+| `foldLastModelSelection` | 1096-1108 | 13 | `export function foldLastModelSelection(events) {` |
+| `buildContinuePrompt` | 1111-1125 | 15 | `export function buildContinuePrompt(info) {` |
+| `withDeleteLock` | 1136-1146 | 11 | `function withDeleteLock(sessionId, fn) {` |
+| `cancelSessionTimers` | 1149-1161 | 13 | `function cancelSessionTimers(sessionId) {` |
+| `withSessionLock` | 1164-1174 | 11 | `function withSessionLock(sessionId, fn) {` |
+| `withConcurrencyGate` | 1177-1187 | 11 | `async function withConcurrencyGate(fn) {` |
+| `continueSession` | 1196-1313 | 118 | `export async function continueSession(ctx, sessionId, { auto = false } = {}) {` |
+| `waitTurn` | 1316-1335 | 20 | `async function waitTurn(ctx, agent) {` |
+| `sendMessageToSession` | 1349-1401 | 53 | `export async function sendMessageToSession(ctx, sessionId, text, { fromSessionId = "" } = {}) {` |
+| `defaultModelSelection` | 1404-1412 | 9 | `function defaultModelSelection(ctx) {` |
+| `pickTeamCaller` | 1419-1440 | 22 | `function pickTeamCaller(ctx) {` |
+| `memberStatusError` | 1454-1463 | 10 | `export function memberStatusError(member) {` |
+| `validateModelPair` | 1473-1494 | 22 | `export async function validateModelPair(ctx, provider, model) {` |
+| `findTargetAgent` | 1503-1564 | 62 | `export function findTargetAgent(ctx, target) {` |
+| `waitForIdle` | 1573-1591 | 19 | `async function waitForIdle(agent, timeoutMs = 60000) {` |
+| `isIdle` | 1574-1574 | 1 | `const isIdle = () => agent?.status !== "running" && !hasOpenTurn(agent?.session?.events);` |
+| `getMemberModelOverride` | 1615-1632 | 18 | `export async function getMemberModelOverride(ctx, sessionId) {` |
+| `applyModelOverride` | 1641-1646 | 6 | `export function applyModelOverride(resolved, override) {` |
+| `appendSelectionEventToLog` | 1658-1711 | 54 | `async function appendSelectionEventToLog(ctx, sessionId, provider, model) {` |
+| `switchAgentModel` | 1730-1796 | 67 | `export async function switchAgentModel(ctx, sessionId, provider, model, agent = null) {` |
+| `resumeSetupFor` | 1807-1843 | 37 | `async function resumeSetupFor(ctx, meta, events, route) {` |
+| `maybeScheduleContinue` | 1846-1858 | 13 | `function maybeScheduleContinue(ctx, sessionId) {` |
+| `runAutoContinueSession` | 1865-1889 | 25 | `async function runAutoContinueSession(ctx, sessionId, { force = false } = {}) {` |
+| `runAutoScan` | 1892-1938 | 47 | `async function runAutoScan(ctx) {` |
+| `scheduleScan` | 1940-1950 | 11 | `function scheduleScan(ctx) {` |
+| `detachSessionAgent` | 1962-2028 | 67 | `export async function detachSessionAgent(ctx, sessionId) {` |
+| `detachAllIdleSessions` | 2031-2056 | 26 | `export async function detachAllIdleSessions(ctx) {` |
+| `listCacheFilePath` | 2086-2091 | 6 | `function listCacheFilePath(ctx) {` |
+| `loadListDiskCache` | 2094-2108 | 15 | `function loadListDiskCache(ctx) {` |
+| `scheduleSaveListDiskCache` | 2111-2119 | 9 | `function scheduleSaveListDiskCache(ctx) {` |
+| `saveListDiskCacheNow` | 2122-2136 | 15 | `function saveListDiskCacheNow(ctx) {` |
+| `buildColdSessionItem` | 2140-2163 | 24 | `function buildColdSessionItem(header, inspected, derived, ctx, storeState, archived) {` |
+| `invalidateSessionListCache` | 2180-2183 | 4 | `function invalidateSessionListCache() {` |
+| `buildSessionListCached` | 2190-2208 | 19 | `async function buildSessionListCached(ctx, { force = false, onItem = null, serial = false } = {}) {` |
+| `buildSessionList` | 2214-2358 | 145 | `async function buildSessionList(ctx, opts = {}) { // dsh-skip-func-length` |
+| `unarchiveSession` | 2367-2376 | 10 | `async function unarchiveSession(ctx, sessionId) {` |
+| `deleteSession` | 2380-2448 | 69 | `export async function deleteSession(ctx, sessionId) {` |
+| `undoLastMessage` | 2465-2573 | 109 | `export async function undoLastMessage(ctx, sessionId, { dryRun = false } = {}) {` |
+| `collectSearchableEvents` | 2588-2625 | 38 | `export function collectSearchableEvents(events) {` |
+| `searchEventsText` | 2631-2647 | 17 | `export function searchEventsText(events, query, { perSessionMax = SEARCH_PER_SESSION_MAX, previewLen = SEARCH_PREVIEW_LEN } = {}) {` |
+| `searchSessions` | 2654-2685 | 32 | `export async function searchSessions(ctx, query, { scope = "all", maxSessions = SEARCH_MAX_SESSIONS, perSessionMax = SEARCH_PER_SESSION_MAX } = {}) {` |
+| `deleteBatchSessions` | 2692-2733 | 42 | `export async function deleteBatchSessions(ctx, sessionIds) {` |
+| `deleteByRule` | 2741-2797 | 57 | `export async function deleteByRule(ctx, { archivedOnly = false, inactiveDays = 0, cwdPrefix = "", lowValue = false, dryRun = false } = {}) {` |
+| `resolveDshHome` | 2808-2812 | 5 | `function resolveDshHome(ctx, c) {` |
+| `resolveBrowseRoot` | 2820-2827 | 8 | `function resolveBrowseRoot(ctx, c) {` |
+| `__setConfigForTest` | 2830-2851 | 22 | `export function __setConfigForTest(partial = {}) {` |
+| `__timersForTest` | 2854-2855 | 2 | `export function __timersForTest() {` |
+| `__switchConfigForTest` | 2859-2861 | 3 | `export function __switchConfigForTest() {` |
+| `__resetForTest` | 2864-2890 | 27 | `export function __resetForTest() {` |
+| `apply` | 2903-4339 | 1437 | `export async function apply(ctx, config = {}) {` |
+| `servePreview` | 3081-3094 | 14 | `const servePreview = async (req, res, name) => {` |
+| `buildSlotsWithContent` | 3166-3178 | 13 | `const buildSlotsWithContent = (meta2) => {` |
+| `log` | 4341-4347 | 7 | `function log(ctx, message) {` |
 
-### lib/repair.js（397 行 · 12 个函数）
-
-| 函数 | 行号 | 行数 | 签名 |
-|------|------|------|------|
-| `parseLineEvents` | 20-27 | 8 | `export function parseLineEvents(line) {` |
-| `validateSessionText` | 34-92 | 59 | `export function validateSessionText(text) {` |
-| `fixToolResultStringContent` | 99-134 | 36 | `export function fixToolResultStringContent(text) {` |
-| `encodeSessionText` | 137-148 | 12 | `export async function encodeSessionText(text) {` |
-| `repairCorruptSessions` | 156-241 | 86 | `export async function repairCorruptSessions(ctx, { dryRun = false } = {}) {` |
-| `scanCorruptSessions` | 244-246 | 3 | `export async function scanCorruptSessions(ctx) {` |
-| `supportsRepair` | 249-252 | 4 | `export function supportsRepair(ctx) {` |
-| `sessionsRootOf` | 259-262 | 4 | `function sessionsRootOf() {` |
-| `scanCorruptFrames` | 268-270 | 3 | `export async function scanCorruptFrames() {` |
-| `repairCorruptFrames` | 277-304 | 28 | `export async function repairCorruptFrames({ dryRun = false } = {}) {` |
-| `scanDualFormatSessions` | 319-348 | 30 | `export async function scanDualFormatSessions() {` |
-| `repairDualFormatSessions` | 356-396 | 41 | `export async function repairDualFormatSessions({ dryRun = false, skipIds = [] } = {}) {` |
-
-### lib/seq-gap-repair.js（222 行 · 6 个函数）
+### lib/repair.js（399 行 · 12 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
-| `loadSessionFile` | 23-39 | 17 | `async function loadSessionFile(path) {` |
-| `detectSeqGap` | 42-49 | 8 | `export function detectSeqGap(events) {` |
-| `foldFix` | 52-79 | 28 | `function foldFix(events, patch) {` |
-| `verifyTokenSurface` | 82-102 | 21 | `function verifyTokenSurface(events) {` |
-| `repairSeqGap` | 110-197 | 88 | `export async function repairSeqGap(path, { dryRun = false, backupDir } = {}) {` |
-| `scanSeqGapSessions` | 200-221 | 22 | `export async function scanSeqGapSessions(sessionsRoot) {` |
+| `parseLineEvents` | 21-28 | 8 | `export function parseLineEvents(line) {` |
+| `validateSessionText` | 35-93 | 59 | `export function validateSessionText(text) {` |
+| `fixToolResultStringContent` | 100-135 | 36 | `export function fixToolResultStringContent(text) {` |
+| `encodeSessionText` | 138-149 | 12 | `export async function encodeSessionText(text) {` |
+| `repairCorruptSessions` | 157-242 | 86 | `export async function repairCorruptSessions(ctx, { dryRun = false } = {}) {` |
+| `scanCorruptSessions` | 245-247 | 3 | `export async function scanCorruptSessions(ctx) {` |
+| `supportsRepair` | 250-253 | 4 | `export function supportsRepair(ctx) {` |
+| `sessionsRootOf` | 260-263 | 4 | `function sessionsRootOf() {` |
+| `scanCorruptFrames` | 269-271 | 3 | `export async function scanCorruptFrames() {` |
+| `repairCorruptFrames` | 278-305 | 28 | `export async function repairCorruptFrames({ dryRun = false } = {}) {` |
+| `scanDualFormatSessions` | 320-350 | 31 | `export async function scanDualFormatSessions() {` |
+| `repairDualFormatSessions` | 358-398 | 41 | `export async function repairDualFormatSessions({ dryRun = false, skipIds = [] } = {}) {` |
+
+### lib/seq-gap-repair.js（223 行 · 6 个函数）
+
+| 函数 | 行号 | 行数 | 签名 |
+|------|------|------|------|
+| `loadSessionFile` | 24-40 | 17 | `async function loadSessionFile(path) {` |
+| `detectSeqGap` | 43-50 | 8 | `export function detectSeqGap(events) {` |
+| `foldFix` | 53-80 | 28 | `function foldFix(events, patch) {` |
+| `verifyTokenSurface` | 83-103 | 21 | `function verifyTokenSurface(events) {` |
+| `repairSeqGap` | 111-198 | 88 | `export async function repairSeqGap(path, { dryRun = false, backupDir } = {}) {` |
+| `scanSeqGapSessions` | 201-222 | 22 | `export async function scanSeqGapSessions(sessionsRoot) {` |
 
 ### lib/session-codec.js（38 行 · 2 个函数）
 
@@ -358,6 +369,13 @@
 |------|------|------|------|
 | `decodeStorageRecord` | 19-28 | 10 | `export function decodeStorageRecord(record) {` |
 | `packChunkRuns` | 35-37 | 3 | `export function packChunkRuns(events) {` |
+
+### lib/session-log.js（47 行 · 2 个函数）
+
+| 函数 | 行号 | 行数 | 签名 |
+|------|------|------|------|
+| `findSessionLog` | 20-37 | 18 | `export function findSessionLog(sessionDir) {` |
+| `isSessionLogName` | 44-46 | 3 | `export function isSessionLogName(name) {` |
 
 ### lib/template-inject.js（268 行 · 16 个函数）
 
@@ -397,16 +415,16 @@
 | `analyzeValuesWithKeywords` | 323-361 | 39 | `export function analyzeValuesWithKeywords(sessions, textsById, userTextsById, featuresById = {}, keywords = [], llmById = {}, now = new Date(), staleDays = 3) {` |
 | `filterSessionsByKeywords` | 373-392 | 20 | `export function filterSessionsByKeywords(sessions, textsById, userTextsById, keywords, now = new Date()) {` |
 
-### lib/zstd-frames.js（177 行 · 6 个函数）
+### lib/zstd-frames.js（178 行 · 6 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|
-| `scanZstdFrames` | 19-49 | 31 | `export function scanZstdFrames(buffer) {` |
-| `decodeFrame` | 52-60 | 9 | `export function decodeFrame(buf) {` |
-| `decodeAllFrames` | 63-68 | 6 | `export async function decodeAllFrames(buf) {` |
-| `validateHeaderFrame` | 74-106 | 33 | `export function validateHeaderFrame(buf) {` |
-| `fixZstdFile` | 114-148 | 35 | `export async function fixZstdFile(path, backupDir = join(dirname(path), '.zstd-fix-backup')) {` |
-| `scanAllCorruptFrames` | 155-176 | 22 | `export async function scanAllCorruptFrames(sessionsRoot) {` |
+| `scanZstdFrames` | 20-50 | 31 | `export function scanZstdFrames(buffer) {` |
+| `decodeFrame` | 53-61 | 9 | `export function decodeFrame(buf) {` |
+| `decodeAllFrames` | 64-69 | 6 | `export async function decodeAllFrames(buf) {` |
+| `validateHeaderFrame` | 75-107 | 33 | `export function validateHeaderFrame(buf) {` |
+| `fixZstdFile` | 115-149 | 35 | `export async function fixZstdFile(path, backupDir = join(dirname(path), '.zstd-fix-backup')) {` |
+| `scanAllCorruptFrames` | 156-177 | 22 | `export async function scanAllCorruptFrames(sessionsRoot) {` |
 
 ### test/unit/test-archive-ws-prefix.mjs（39 行 · 3 个函数）
 
@@ -473,6 +491,13 @@
 | `titledEvents` | 39-45 | 7 | `function titledEvents(title) {` |
 | `makeCtx` | 51-87 | 37 | `function makeCtx({ snapshots, eventsById = {}, inspectFails = new Set() }) {` |
 
+### test/unit/test-member-model.mjs（288 行 · 2 个函数）
+
+| 函数 | 行号 | 行数 | 签名 |
+|------|------|------|------|
+| `agent` | 18-26 | 9 | `const agent = (id, title) => {` |
+| `makeCtx` | 28-64 | 37 | `function makeCtx({ agents = [], titles = {}, catalog = null, selectModel = null, teamMembers = null, persistenceArtifacts = null } = {}) {` |
+
 ### test/unit/test-search-delete.mjs（272 行 · 1 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
@@ -485,7 +510,7 @@
 |------|------|------|------|
 | `ok` | 38-41 | 4 | `async function ok(name, fn) {` |
 
-### test/unit/test-undo.mjs（136 行 · 1 个函数）
+### test/unit/test-undo.mjs（168 行 · 1 个函数）
 
 | 函数 | 行号 | 行数 | 签名 |
 |------|------|------|------|

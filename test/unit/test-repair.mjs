@@ -2,6 +2,7 @@
 // 运行：node test-repair.mjs（需 workspace/node_modules 软链到 app node_modules）
 import assert from "node:assert/strict";
 import { validateSessionText, fixToolResultStringContent, encodeSessionText } from "../../lib/repair.js";
+import { decodeAllFrames } from "../../lib/zstd-frames.js";
 
 const ev = (type, data, seq) => JSON.stringify({ type, seq, time: 1, data });
 
@@ -73,16 +74,9 @@ console.log("fixToolResultStringContent: 3 项断言通过");
   const { zstdDecompressSync } = await import("node:zlib");
   const firstFrameText = zstdDecompressSync(encoded).toString("utf8");
   assert.equal(firstFrameText.trim(), goodHeader, "首帧恰好是 header 行");
-  // 整文件解码（zstd CLI 支持多帧）应等于修复后的完整文本，且无多余空行
-  const { execFileSync } = await import("node:child_process");
-  const { writeFileSync, mkdtempSync, rmSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  const dir = mkdtempSync(join(tmpdir(), "repair-"));
-  const tmp = join(dir, "s.zstd");
-  writeFileSync(tmp, encoded);
-  const decoded = execFileSync("zstd", ["-d", "-c", tmp]).toString("utf8");
-  rmSync(dir, { recursive: true, force: true });
+  // 整文件多帧解码走 node:zlib（lib/zstd-frames.js 的 decodeAllFrames），
+  // 不依赖系统 zstd 命令，也不再需要临时文件。
+  const decoded = await decodeAllFrames(encoded);
   assert.equal(decoded, `${goodHeader}\n${goodToolResult}\n${badToolResult}\n`, "整文件解码与原文一致");
 }
 console.log("encodeSessionText: 3 项断言通过");

@@ -106,7 +106,7 @@ function makeCtx({ events = interruptedEvents(), live = null, agent = null, agen
 }
 
 // ---------- 1. 纯函数已由 quick-check 覆盖，这里补门槛相关 ----------
-// v1.35.3：自动续跑默认关闭；测试显式开启，覆盖 auto 路径门槛
+// 自动续跑默认关闭；测试显式开启，覆盖 auto 路径门槛
 __setConfigForTest({ defaultAutoContinue: true, maxConcurrent: 2, maxAttached: 12, cooldownMs: 60 * 1000, maxContinuesPerSession: 3, turnTimeoutMs: 60 * 1000 });
 
 __resetForTest();
@@ -264,7 +264,7 @@ __resetForTest();
 }
 
 __resetForTest();
-// 12. v1.35.3「本轮运行失败」识别：任意 error code（非原可重试集）都判为可续中断
+// 12. 「本轮运行失败」识别：任意 error code（非原可重试集）都判为可续中断
 {
   const errorEvents1 = [
     ev("turn/start", { turn: 1 }, 1),
@@ -297,7 +297,7 @@ __resetForTest();
 }
 
 __resetForTest();
-// 13. v1.35.6：continueSession 永不 reject（防 unhandledRejection 杀进程）
+// 13. continueSession 永不 reject（防 unhandledRejection 杀进程）
 //     场景：读取事件流时基础服务抛错（模拟 domain/持久化异常），必须返回 {ok:false} 而非 reject。
 {
   const badCtx = {
@@ -319,7 +319,7 @@ __resetForTest();
 }
 
 __resetForTest();
-// 14. v1.35.6：resume 失败（agents.resume reject）时 continueSession 也返回结果而非抛出
+// 14. resume 失败（agents.resume reject）时 continueSession 也返回结果而非抛出
 {
   const ctx = makeCtx({
     events: interruptedEvents(),

@@ -1,4 +1,4 @@
-// dsh-session-conductor v1.20.0 归档标题工作区前缀 纯函数单测
+// dsh-session-conductor  归档标题工作区前缀 纯函数单测
 import { strict as assert } from 'node:assert'
 
 // 与 lib/index.js 相同的实现（测试独立复刻，避免 import 整个插件）

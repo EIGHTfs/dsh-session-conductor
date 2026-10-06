@@ -1,5 +1,5 @@
 /**
- * dsh-session-conductor — 会话模板注入单测（v1.31.0）
+ * dsh-session-conductor — 会话模板注入单测
  *
  * 覆盖：
  *   1. TEMPLATE_DEFAULTS / TEMPLATE_SLOTS
@@ -163,7 +163,7 @@ await ok('removeTemplate 清空 → 不再注入', async () => {
   assert.ok(!t.includes(CLOSING));
 });
 
-// ── v1.35.0 方案模板强制门禁：enforce 字段 / 注入说明 / 判定常量 / 无状态门判定 ──
+// ──  方案模板强制门禁：enforce 字段 / 注入说明 / 判定常量 / 无状态门判定 ──
 
 ok("v1.35 defaults 含 enforce:false（plan/closing）", () => {
   assert.strictEqual(TEMPLATE_DEFAULTS.plan.enforce, false);

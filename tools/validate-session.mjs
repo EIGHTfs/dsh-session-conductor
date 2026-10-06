@@ -2,14 +2,16 @@
 // 离线校验会话日志是否通过 DSH 持久化校验器（assertMessageEventShape 等价复刻）。
 // 用法: node validate-session.mjs <session.jsonl.zstd>
 // 退出码: 0 = 校验通过, 1 = 校验失败
-import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { decodeStorageRecord } from "../lib/session-codec.js";
+import { decodeAllFrames } from "../lib/zstd-frames.js";
 
 const file = process.argv[2];
 if (!file) { console.error("用法: node validate-session.mjs <session.jsonl.zstd>"); process.exit(2); }
 
-// 用 zstd CLI 解码（DSH 日志是多帧 zstd，node 单帧 API 只能解第一帧）
-const plaintext = execFileSync("zstd", ["-d", "-c", file], { maxBuffer: 512 * 1024 * 1024 }).toString("utf8");
+// 多帧 zstd 解码走 Node 自带 node:zlib（lib/zstd-frames.js 的 decodeAllFrames），
+// 不依赖系统 zstd 命令（无 zstd CLI 的环境同样可用）。
+const plaintext = await decodeAllFrames(readFileSync(file));
 
 const lines = plaintext.split("\n").filter((l) => l.trim() !== "");
 const problems = [];

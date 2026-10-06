@@ -4,7 +4,7 @@
  *
  * 背景：ESM 里「import 了一个存在的导出，但代码调用了另一个没导入的名字」
  * 时，模块加载不报错，只有运行到那一行才抛 ReferenceError（例：dsh-session-conductor
- * v1.24.0 的 collectMdInjectTextSync is not defined —— import 的是 collectMdInjectText
+ *  的 collectMdInjectTextSync is not defined —— import 的是 collectMdInjectText
  * 异步版，systemPrompt 调用的是同步版）。这类 bug 语法检查（node --check）抓不到，
  * 单元测试若不执行那条路径也抓不到。本脚本静态扫描，提交前跑一遍兜底。
  *

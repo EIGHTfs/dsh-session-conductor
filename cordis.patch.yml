@@ -31,12 +31,12 @@
     - id: dsh-session-conductor
       name: dsh-session-conductor
 
-# —— 全文搜索：解锁官方 FTS5 内容搜索（v1.19.0 起并入，原独立插件 dsh-session-search 已合并）——
+# —— 全文搜索：解锁官方 FTS5 内容搜索（ 起并入，原独立插件 dsh-session-search 已合并）——
 # 官方默认 session-query-sqlite 配成 openAt: never（侧边栏搜索只匹配标题/工作区名）。
 # 这里覆盖为 first-search：首次搜索时构建 SQLite FTS5 索引，GUI 搜索即变为内容全文搜索
 # （snippet 命中上下文、相关度排序、分页均为官方现成实现）。
 # ⚠️ patch 层按 id 整行替换 config 不合并：必须 restate 全部 key。
-# ⚠️ path 必须是磁盘文件（v1.35.8 起）。原值 ':memory:' 会把全部会话正文的 FTS5 索引建在内存里：
+# ⚠️ path 必须是磁盘文件（ 起）。原值 ':memory:' 会把全部会话正文的 FTS5 索引建在内存里：
 #   实测每 MB 文本约耗 3.3MB 内存，本机会话正文约 443MB → 单次「首次搜索」建索引峰值约 1.4GB，
 #   叠加进程基线后触发 OOM，表现为「启用本插件后隔一会 DSH 进程被杀、会话加载不出来」。
 #   官方 base bundle 注释同样要求启用内容搜索时配 durable path（默认 openAt: never 不建索引）。

@@ -42,7 +42,7 @@
   "lib/template-inject.js": "模板注入（方案/收尾槽位读写、注入文本拼接）",
   "lib/value.js": "价值分析（LLM 分类）",
   "lib/zstd-frames.js": "zstd 帧解析/校验",
-  "package.json": "npm 规范清单（1.0.0）",
+  "package.json": "npm 规范清单（版本号权威源）",
   "skills/dsh-session-conductor-functions.md": "功能说明书（每个功能用途/参数/返回）",
   "skills/dsh-session-conductor.md": "使用手册",
   "skills/dsh-session-official-doc.md": "DSH 官方会话机制对照",
@@ -90,38 +90,13 @@
   "test/unit/test-undo.mjs": "撤回消息 undoLastMessage 单测",
   "test/e2e/.test": "e2e 测试目录审计豁免标记（0 字节）",
   "test/unit/.test": "单测目录审计豁免标记（0 字节）",
-  "_meta": {
-    "worktree": {
-      "README.md": {
-        "status": "M",
-        "mtime": "2026-09-29T12:45:06.384Z",
-        "note": "注释可能需更新"
-      },
-      "docs/FILE-TREE.md": {
-        "status": "M",
-        "mtime": "2026-09-29T12:45:50.369Z",
-        "note": "注释可能需更新"
-      },
-      "assets/screenshots/": {
-        "status": "A",
-        "mtime": "2026-09-29T12:30:03.639Z",
-        "note": "注释可能需更新"
-      },
-      "screenshots.json": {
-        "status": "A",
-        "mtime": "2026-09-29T12:31:49.661Z",
-        "note": "注释可能需更新"
-      },
-      "tools/screenshot-preview.mjs": {
-        "status": "A",
-        "mtime": "2026-09-29T12:43:37.114Z",
-        "note": "注释可能需更新"
-      }
-    }
-  },
   "assets/screenshots": "README/市场配图（playwright 自动截图产物）",
   "assets/screenshots/panel.png": "会话管理面板截图",
   "assets/screenshots/settings.png": "模板注入设置页截图",
   "screenshots.json": "市场截图声明（dsh-market 详情页展示 1-8 张）",
-  "tools/screenshot-preview.mjs": "预览 html 自动截图（playwright chromium，环境 env 覆盖）"
+  "tools/screenshot-preview.mjs": "预览 html 自动截图（playwright chromium，环境 env 覆盖）",
+  "assets/minihost.sh": "插件服务端本地自检宿主（mini-host 一键启动，改代码刷新即生效，免重启 DSH）",
+  "test/unit/test-member-model.mjs": "成员模型切换单测（list_models / set_member_model）",
+  "lib/session-log.js": "会话日志文件定位（v3/v4 文件名兼容：session.jsonl.zstd / session.v4.jsonl.zstd）",
+  "test/unit/test-session-log.mjs": "会话日志定位单测（v3/v4/未来命名兼容）"
 }
