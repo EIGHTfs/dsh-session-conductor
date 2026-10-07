@@ -12,6 +12,9 @@ import assert from 'node:assert/strict';
 
 import { api, requireHost } from './helpers/host-api.mjs';
 
+/** 十年（天）：足够大的 inactiveDays，保证按规则删除只预演、零匹配。 */
+const TEN_YEARS_DAYS = 3650;
+
 const hostUp = await requireHost();
 const skip = hostUp ? false : '宿主不可用（未启动或端口不同；可用 SC_HOST 覆盖）';
 
@@ -28,7 +31,7 @@ test('POST /delete-batch：空数组是空批（200，零删除）', { skip }, a
 
 test('POST /delete-by-rule：dryRun 预演（inactiveDays 3650 十年内无匹配）零删除', { skip }, async () => {
   // 用 dryRun + 极大的 inactiveDays 保证「只预演、不匹配任何会话」⇒ 绝不删数据
-  const r = await api('POST', '/api/session-conductor/delete-by-rule', { dryRun: true, inactiveDays: 3650 });
+  const r = await api('POST', '/api/session-conductor/delete-by-rule', { dryRun: true, inactiveDays: TEN_YEARS_DAYS });
   assert.notEqual(r.status, 500, `不该 500（实得 ${r.status}：${String(r.text).slice(0, 140)}）`);
   assert.equal(r.status, 200, `应回 200 预演结果（实得 ${r.status}）`);
 });

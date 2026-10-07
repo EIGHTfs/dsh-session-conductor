@@ -9,6 +9,9 @@ import assert from 'node:assert/strict';
 
 import { api, requireHost } from './helpers/host-api.mjs';
 
+/** 非字符串 sessionId（校验路径专用）：数字是合法 JSON，但不是合法 sessionId 类型。 */
+const NON_STRING_SESSION_ID = 12345;
+
 const hostUp = await requireHost();
 const skip = hostUp ? false : '宿主不可用（未启动或端口不同；可用 SC_HOST 覆盖）';
 
@@ -38,6 +41,6 @@ test('POST /delete：不存在的 sessionId 走幂等语义（200）或明确拒
 });
 
 test('POST /delete：sessionId 非字符串必须 400', { skip }, async () => {
-  const r = await api('POST', '/api/session-conductor/delete', { sessionId: 12345 });
+  const r = await api('POST', '/api/session-conductor/delete', { sessionId: NON_STRING_SESSION_ID });
   assert.equal(r.status, 400, `应回 400 参数错误（实得 ${r.status}）`);
 });

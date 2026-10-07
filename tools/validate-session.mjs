@@ -38,8 +38,8 @@ for (let i = 1; i < lines.length; i++) {
     seq++;
     if (ev.type !== "tool/result") continue;
     // tool/result 消息形状校验（复刻 assertMessageEventShape）
-    const data = ev.data;
-    const message = data?.message;
+    const eventData = ev.data;
+    const message = eventData?.message;
     if (typeof message !== "object" || message === null || typeof message.id !== "string" || message.id === "") { problems.push(`seq ${ev.seq} tool/result 缺 message.id`); continue; }
     if (message.role !== "user") problems.push(`seq ${ev.seq} tool/result role 应为 user`);
     const source = message.source;

@@ -1,0 +1,24 @@
+{
+  "file": "lib/index.js",
+  "outdir": "lib",
+  "index": "index.js",
+  "index_header": "/**\n * dsh-session-conductor · 统一出口（只做再导出）\n *\n * 拆分说明：原 lib/index.js 2258 行、24 个顶层块（其中 apply 单块 1438 行装的是\n * 路由注册 + 各 handler 实现），按职责切到 lib/ 下的域模块，本文件只保留再导出，\n * 使调用方导入路径与对外导出面完全不变（plugins 入口仍是 lib/index.js）。\n * 下一步（单独一轮）：把 apply 内部的 handler 继续抽成独立模块，apply 只留注册与编排。\n */",
+  "plan": {
+    "http.js": ["send", "readJson"],
+    "guards.js": ["processGuardsInstalled", "installProcessGuards"],
+    "features/session-ops.js": ["unarchiveSession", "deleteSession", "undoLastMessage", "deleteBatchSessions", "deleteByRule"],
+    "features/search.js": ["SEARCH_MIN_QUERY", "SEARCH_MAX_SESSIONS", "SEARCH_PER_SESSION_MAX", "SEARCH_PREVIEW_LEN", "collectSearchableEvents", "searchEventsText", "searchSessions"],
+    "shared/test-hooks.js": ["templateStateCache", "__setConfigForTest", "__timersForTest", "__switchConfigForTest", "__resetForTest"],
+    "shared/settings.js": ["CONDUCTOR_SETTINGS_NS", "PresenceSchema"],
+    "apply.js": ["apply"]
+  },
+  "headers": {
+    "http.js": "/** HTTP 小工具：响应发送与请求体解析（供路由 handler 共用）。 */",
+    "guards.js": "/** 进程级护栏：崩溃/未捕获异常的处理安装与状态查询。 */",
+    "features/session-ops.js": "/** 会话级操作：归档恢复、删除（单个/批量/按规则）、撤回最后一条消息。 */",
+    "features/search.js": "/** 会话全文检索：可检索事件收集、文本匹配、按会话检索。 */",
+    "shared/test-hooks.js": "/** 测试钩子：配置/定时器注入与状态重置（仅测试使用）。 */",
+    "shared/settings.js": "/** 插件设置命名空间与设置 schema。 */",
+    "apply.js": "/** 插件入口 apply：注册路由、工具、设置页与各类钩子（本轮拆分后仍含各 handler 实现，下一步继续抽出）。 */"
+  }
+}

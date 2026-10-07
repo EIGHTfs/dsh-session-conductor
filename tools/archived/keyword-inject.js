@@ -1,5 +1,9 @@
-/** ⚠️ 留档文件（2026-09-26）：关键字/行为自动注入功能已移除，本模块**不再被引用**，
+/** ⚠️ 留档文件：关键字/行为自动注入功能已移除，本模块**不再被引用**，
  *  保留仅供查阅原实现（功能说明见下方原头注释）。运行时代码（lib/index.js）已删除全部 import/调用。 */
+/** todo 提示文本里的片段截断长度（字符）。 */
+const KEYWORD_SNIPPET_MAX_CHARS = 120;
+/** 注入上下文 snippet 字段的截断长度（字符）。 */
+const INJECT_SNIPPET_MAX_CHARS = 800;
 /**
  * dsh-session-conductor — AI 思考/回复关键字自动注入子模块（v1.24.0 新增，）
  *
@@ -173,7 +177,7 @@ export function matchKeywords(text, keywords) {
  */
 export function keywordTodoText(keyword, snippet) {
   const s = String(snippet ?? '').trim().replace(/\{\{/g, '{').replace(/\}\}/g, '}').replace(/\s+/g, ' ');
-  const brief = s.slice(0, 120);
+  const brief = s.slice(0, KEYWORD_SNIPPET_MAX_CHARS);
   return `🔑 关键字「${keyword}」命中：${brief}`;
 }
 
@@ -246,7 +250,7 @@ export async function scanAndRecord({ state, domain, sessionId, events, onHit })
         keyword,
         sessionId,
         at: now,
-        snippet: (hitDetail || text).slice(0, 800),
+        snippet: (hitDetail || text).slice(0, INJECT_SNIPPET_MAX_CHARS),
         action: rule.action,
         context: rule.context || '',
         toolName: rule.toolName || '',

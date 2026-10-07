@@ -41,10 +41,14 @@ whenToUse: 每次完成有交付物的任务后收尾；任务汇报格式自检
 ══════════════════════════
 ```
 
-## 三、配套工具
+## 三、配套端点
 
-- `task_completion_render`：渲染标准收尾块（分隔线 + 状态标记 + 三要素），任务结束前调用，把返回文本原样贴到回复结尾。
-- `task_completion_check`：校验一段文本是否符合收尾格式（分隔线/完成标记/交付/验证/遗留），写完成汇报后自检用。
+- `GET /api/task-completion/status`：回报本约定的来源（收尾模板槽位）与已注册工具（现为空列表）。
+- `POST /api/task-completion/render`：按三要素渲染标准收尾块，供面板与自检调用。
+- `POST /api/task-completion/check`：校验一段文本是否符合收尾格式，返回缺项。
+
+> 收尾格式依靠本 skill 的约定 + 收尾模板注入（设置 → 会话管理 → 模板注入 → closing），
+> 不再依赖 `task_completion_render` / `task_completion_check`（两者已从插件移除，不再注册为 LLM 工具）。
 
 ## 相关
 

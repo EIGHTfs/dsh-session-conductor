@@ -13,26 +13,33 @@ const MS_FONTS = process.env.MS_FONTCONF || '/volume1/VirtualDSM/DeepSeekHarness
 const OUT = process.env.MS_OUT_DIR || join(ROOT, 'assets', 'screenshots');
 
 mkdirSync(OUT, { recursive: true });
+/** 截图视口尺寸（桌面宽度，与面板设计宽度匹配）。 */
+const VIEWPORT_WIDTH = 1280;
+const VIEWPORT_HEIGHT = 900;
+/** 页面错误信息截断长度（字符）。 */
+const PAGE_ERROR_MAX_CHARS = 150;
+/** 页面「稳定下来」的等待时长（毫秒）：等 React 渲染 + 异步数据落定。 */
+const UI_SETTLE_MS = 1200;
 const browser = await chromium.launch({
   executablePath: CHROME, headless: true,
   args: ['--no-sandbox', '--disable-dev-shm-usage'],
   env: { ...process.env, LD_LIBRARY_PATH: MS_LIBS, FONTCONFIG_FILE: MS_FONTS },
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-page.on('pageerror', (e) => console.log('  [pageerror]', String(e).slice(0, 150)));
+const page = await browser.newPage({ viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT } });
+page.on('pageerror', (e) => console.log('  [pageerror]', String(e).slice(0, PAGE_ERROR_MAX_CHARS)));
 
 try {
   // ① 设置页（模板注入）预览
   await page.goto('file://' + join(ROOT, 'assets', 'preview-settings.html'), { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForSelector('text=模板注入', { timeout: 20000 }).catch(() => console.log('  settings: 模板注入 未在 20s 内出现（仍截图）'));
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(UI_SETTLE_MS);
   await page.screenshot({ path: join(OUT, 'settings.png'), fullPage: true });
   console.log('✓ settings.png');
 
   // ② 会话管理面板预览
   await page.goto('file://' + join(ROOT, 'assets', 'preview-panel.html'), { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForSelector('text=全部会话', { timeout: 20000 }).catch(() => console.log('  panel: 全部会话 未在 20s 内出现（仍截图）'));
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(UI_SETTLE_MS);
   await page.screenshot({ path: join(OUT, 'panel.png'), fullPage: true });
   console.log('✓ panel.png');
 } finally {

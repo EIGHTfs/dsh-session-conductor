@@ -27,6 +27,9 @@
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, resolve, dirname, extname } from 'node:path';
 
+/** 解构导入里的 ` as ` 分隔符（同一份解析逻辑在多处复用，集中一处便于改）。 */
+const IMPORT_AS_SEPARATOR = ' as ';
+
 // ---------- 配置 ----------
 const GLOBAL_WHITELIST = new Set([
   // JS 内置
@@ -66,10 +69,10 @@ function parseImports(source) {
       for (let spec of named.split(',')) {
         spec = spec.trim();
         if (!spec) continue;
-        const asIdx = spec.lastIndexOf(' as ');
+        const asIdx = spec.lastIndexOf(IMPORT_AS_SEPARATOR);
         specs.push(
           asIdx >= 0
-            ? { source: spec.slice(0, asIdx).trim(), local: spec.slice(asIdx + 4).trim() }
+            ? { source: spec.slice(0, asIdx).trim(), local: spec.slice(asIdx + IMPORT_AS_SEPARATOR.length).trim() }
             : { source: spec.trim(), local: spec.trim() }
         );
       }
@@ -83,8 +86,8 @@ function parseImports(source) {
     for (let spec of m[1].split(',')) {
       spec = spec.trim();
       if (!spec) continue;
-      const asIdx = spec.lastIndexOf(' as ');
-      imported.add(asIdx >= 0 ? spec.slice(asIdx + 4).trim() : spec.trim());
+      const asIdx = spec.lastIndexOf(IMPORT_AS_SEPARATOR);
+      imported.add(asIdx >= 0 ? spec.slice(asIdx + IMPORT_AS_SEPARATOR.length).trim() : spec.trim());
     }
   }
   // 动态 import 默认/命名：const x = (await import('y')).default 较少见，跳过
@@ -118,8 +121,8 @@ function parseDefinitions(source) {
     for (let spec of m[1].split(',')) {
       spec = spec.trim();
       if (!spec) continue;
-      const asIdx = spec.lastIndexOf(' as ');
-      defs.add(asIdx >= 0 ? spec.slice(asIdx + 4).trim() : spec.trim());
+      const asIdx = spec.lastIndexOf(IMPORT_AS_SEPARATOR);
+      defs.add(asIdx >= 0 ? spec.slice(asIdx + IMPORT_AS_SEPARATOR.length).trim() : spec.trim());
     }
   }
   // 箭头函数常量：const f = (x) => ... 和 const f = x => ...（reConst 已抓 f，这里补）
@@ -195,7 +198,7 @@ function exportsOfModule(sourceFile, importSource, seen = new Set()) {
     for (let spec of m[1].split(',')) {
       spec = spec.trim();
       if (!spec) continue;
-      const asIdx = spec.lastIndexOf(' as ');
+      const asIdx = spec.lastIndexOf(IMPORT_AS_SEPARATOR);
       names.add(asIdx >= 0 ? spec.slice(0, asIdx).trim() : spec.trim());
     }
   }
@@ -213,7 +216,7 @@ function exportsOfModule(sourceFile, importSource, seen = new Set()) {
       for (let spec of m[1].split(',')) {
         spec = spec.trim();
         if (!spec) continue;
-        const asIdx = spec.lastIndexOf(' as ');
+        const asIdx = spec.lastIndexOf(IMPORT_AS_SEPARATOR);
         names.add(asIdx >= 0 ? spec.slice(0, asIdx).trim() : spec.trim());
       }
     }

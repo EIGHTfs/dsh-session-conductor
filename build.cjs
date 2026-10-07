@@ -18,9 +18,27 @@ const root = __dirname;
 const partsDir = path.join(root, "lib", "client-parts");
 const clientPath = path.join(root, "lib", "client.js");
 
+// 主插件块的包裹文本（原散落在两个分片里：开头在 foundation/bootstrap.js、收尾在 apply.js）：
+//   · 挪到构建脚本后，**每个分片都成为可独立 `node --check` 的完整语法单元**——
+//     否则 opener/closer 分片单独解析必然报 Illegal return / Unexpected token，
+//     连审计的 tokenizer 也会走偏（把 CSS 模板串里的数字误当代码魔数）。
+//   · 文本与原来逐字一致（分片里删掉、这里补上），产物 lib/client.js 字节不变。
+const HEAD_TEXT = [
+  'window.__ModuleLoader__.load({',
+  '  id: "dsh-session-conductor",',
+  '  factory: (require) => {',
+  '',
+].join('\n');
+const TAIL_TEXT = [
+  '    return module.exports;',
+  '  },',
+  '});',
+  '',
+].join('\n');
+
 // 拼接顺序（= 原单文件行序；改依赖/新增片段必须同步改这里）
 const PART_ORDER = [
-  // foundation：基础支撑（最先声明，被所有片段引用；主插件 load 开头在此）
+  // foundation：基础支撑（最先声明，被所有片段引用；主插件 load 由本脚本补开头）
   "foundation/i18n.js",
   "foundation/bootstrap.js",
   "foundation/styles.js",
@@ -29,7 +47,7 @@ const PART_ORDER = [
   "components/session-icon.js",
   "components/panel.js",
   "components/settings.js",
-  // 入口：主插件 apply 收尾 + exports
+  // 入口：主插件 apply 收尾 + exports（收尾由本脚本补）
   "apply.js",
   // 独立插件块（各自 ModuleLoader.load，独立闭包互不影响）
   "components/group.js",
@@ -38,7 +56,12 @@ const PART_ORDER = [
   "components/conductor-settings.js",
 ];
 
-let src = PART_ORDER.map((name) => fs.readFileSync(path.join(partsDir, name), "utf8")).join(""); // 拼接必需全量读入小片段
+let src = "";
+for (const name of PART_ORDER) {
+  if (name === "foundation/bootstrap.js") src += HEAD_TEXT; // 主插件 load 开头
+  src += fs.readFileSync(path.join(partsDir, name), "utf8");
+  if (name === "apply.js") src += TAIL_TEXT; // 主插件 load 收尾
+}
 
 if (process.argv.includes("--check")) {
   const cur = fs.existsSync(clientPath) ? fs.readFileSync(clientPath, "utf8") : "";

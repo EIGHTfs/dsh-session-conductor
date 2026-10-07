@@ -12,7 +12,7 @@
  *   会话日志（zstd 压缩的 JSONL）首帧 header 读取真实 cwd；
  *   若该 cwd 文件夹不存在，则创建空文件夹（mkdir -p，带权限兜底）。
  *
- * 数据源优先级（实测 2026-10-04）：
+ * 数据源优先级（实测 ）：
  *   1. 会话日志首帧 header.cwd —— 权威，直接来自 DSH 运行时
  *   2. 目录名逆向解码（有损，仅作交叉验证，不作创建依据）
  *   两者冲突时以 header.cwd 为准（code-truth-over-md：代码实际值 > 推测值）
@@ -146,10 +146,10 @@ function readFirstFrameCwd(logPath) {
   for (const line of text.split('\n')) {
     const l = line.trim();
     if (!l) continue;
-    let obj;
-    try { obj = JSON.parse(l); } catch { continue; }
-    if (obj && obj.type === 'session' && typeof obj.cwd === 'string') {
-      return obj.cwd;
+    let record;
+    try { record = JSON.parse(l); } catch { continue; }
+    if (record && record.type === 'session' && typeof record.cwd === 'string') {
+      return record.cwd;
     }
     // 只取第一帧就够（header 必在首帧）
     break;
@@ -163,6 +163,10 @@ function readFirstFrameCwd(logPath) {
 // 注意：'-' 既是安全字符又是分隔符，编码有损，无法唯一还原
 // ---------------------------------------------------------------------------
 function projectKey(cwd) {
+  /** UTF-16 码元掩码：~XXXX 只保留低 16 位。 */
+  const UTF16_CODE_UNIT_MASK = 0xffff;
+  /** 目录名 slug 长度上限（与官方 projectKey 一致）。 */
+  const MAX_PROJECT_KEY_SLUG = 251;
   let out = '', sepRun = false;
   for (const ch of cwd) {
     if (ch === '/' || ch === '\\' || ch === ':') {
@@ -172,13 +176,13 @@ function projectKey(cwd) {
       out += ch;
       sepRun = false;
     } else {
-      out += '~' + (ch.charCodeAt(0) & 0xffff).toString(16).toUpperCase().padStart(4, '0');
+      out += '~' + (ch.charCodeAt(0) & UTF16_CODE_UNIT_MASK).toString(16).toUpperCase().padStart(4, '0');
       sepRun = false;
     }
   }
   // 官方正则为 /^-+/ 去掉开头全部 '-'
   const slug = out.replace(/^-+/, '') || 'root';
-  return '--' + slug.slice(0, 251) + '--';
+  return '--' + slug.slice(0, MAX_PROJECT_KEY_SLUG) + '--';
 }
 
 // 简单启发式解码（全 '-' 还原为 '/'，已知有损，只用于展示对照）
