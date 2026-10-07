@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-conductor",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "DSH session management enhancement: archive/restore sessions, batch & conditional delete, AI auto-rename, interrupted-session auto-resume, release idle sessions, workspace grouping, undo last message, repair damaged session logs, value analysis, full-text search, per-member model switching (list_models / set_member_model), and plan/closing template injection (system-prompt + context).",
   "type": "module",
