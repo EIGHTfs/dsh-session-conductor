@@ -30,8 +30,11 @@ test('POST /delete-batch：空数组是空批（200，零删除）', { skip }, a
 });
 
 test('POST /delete-by-rule：dryRun 预演（inactiveDays 3650 十年内无匹配）零删除', { skip }, async () => {
-  // 用 dryRun + 极大的 inactiveDays 保证「只预演、不匹配任何会话」⇒ 绝不删数据
-  const r = await api('POST', '/api/session-conductor/delete-by-rule', { dryRun: true, inactiveDays: TEN_YEARS_DAYS });
+  // 用 dryRun + 极大的 inactiveDays 保证「只预演、不匹配任何会话」⇒ 绝不删数据。
+  // 超时放宽到 180s：该端点每次调用都**绕过列表缓存重建全量列表**（安全设计：删前不用旧数据），
+  //   **实测热调用仍要 47s**（冷 68s）才回 200 —— 是「慢」不是「挂」（真挂死会由 API 基座
+  //   的超时以「无响应」明确报出，不会伪装成通过）。
+  const r = await api('POST', '/api/session-conductor/delete-by-rule', { dryRun: true, inactiveDays: TEN_YEARS_DAYS }, { timeoutMs: 180000 });
   assert.notEqual(r.status, 500, `不该 500（实得 ${r.status}：${String(r.text).slice(0, 140)}）`);
   assert.equal(r.status, 200, `应回 200 预演结果（实得 ${r.status}）`);
 });

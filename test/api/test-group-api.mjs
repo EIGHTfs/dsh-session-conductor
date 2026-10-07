@@ -41,6 +41,14 @@ test('POST /group/new-session：非法 workspaceId 必须是 404（不得 500，
 });
 
 test('GET /group（缺 workspaceId）：不因缺参 500', { skip }, async () => {
+  // 历史坑（2026-10-07 前）：这条路径曾**永不响应** —— /api/session-conductor/group 是
+  //   kind:'prefix' 路由，旧 handler 走到末尾直接 return（无响应），框架不会继续找别的路由，
+  //   请求就一直挂着 ⇒ 本文件 timeout 124、表现为「看不见的失败」。
+  //   修复在 lib/group.js 末尾的兜底（未匹配一律 404）。两道护栏：
+  //     ① test/unit/test-group-route-fallthrough.mjs —— 直接调 handler，断言必回 404（免宿主）；
+  //     ② 本文件基座 host-api.mjs 加了 SC_TIMEOUT_MS 超时 —— 真挂了也会在 20s 内**明确报错**
+  //        （「<method> <path> 无响应」），不再无限卡死。
   const r = await api('GET', '/api/session-conductor/group');
   assert.notEqual(r.status, 500, `缺参不该 500（实得 ${r.status}）`);
+  assert.equal(r.status, 404, `应回 404（未匹配的 group 接口），实得 ${r.status}`);
 });

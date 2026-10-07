@@ -24,6 +24,18 @@ export const DSH_HOME = process.env.SC_DSH_HOME || '/volume1/@appdata/DeepSeekHa
 /** 宿主启动日志（含「首次认证 http://…/?token=…」行） */
 const LOG_PATH = process.env.SC_LOG || join(DSH_HOME, '..', 'DeepSeekHarness-NAS.log');
 
+/**
+ * 单次请求超时（毫秒）。为什么必须有：路由漏写响应（如 prefix 路由未兜底）时
+ * socket 不会关闭，fetch 会一直等 —— 测试表现为「整轮卡死 + timeout 124」这种
+ * 看不见的失败，而不是一条红色用例。加超时后变成明确的「某接口无响应」。
+ *
+ * 为什么默认这么宽（120s）：宿主**刚重启后第一次**调用要走冷路径 —— 实测 /list 冷启动
+ * >20s、delete-by-rule（dryRun 全量扫描）**67.7s** 才回 200，都是合法慢而非挂死；
+ * 把默认设紧会把「慢」误判成「挂」（本项目踩过：20s 默认导致 2 条 api 用例误红）。
+ * 需要收紧/放宽时：环境变量 SC_TIMEOUT_MS 全局覆盖，或单次调用传 { timeoutMs }。
+ */
+export const TIMEOUT_MS = Number(process.env.SC_TIMEOUT_MS || 120000);
+
 let cachedCookie = '';
 
 /** 从宿主启动日志取当前 token（取最后一条「首次认证」） */
@@ -39,7 +51,7 @@ export async function login() {
   if (cachedCookie) return cachedCookie;
   const token = readHostToken();
   if (!token) throw new Error(`无法从宿主日志取 token（${LOG_PATH}）——请确认宿主已启动`);
-  const res = await fetch(`${HOST}/?token=${token}`, { redirect: 'manual' });
+  const res = await fetch(`${HOST}/?token=${token}`, { redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
   const setCookie = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get('set-cookie') || ''];
   cachedCookie = setCookie.map((c) => String(c).split(';')[0]).filter(Boolean).join('; ');
   if (!cachedCookie) throw new Error('登录未拿到 cookie——宿主鉴权形态可能已变');
@@ -51,9 +63,11 @@ export async function login() {
  * @param {string} method GET/POST/…
  * @param {string} path 形如 /api/session-conductor/group/status
  * @param {object} [body] JSON 请求体（POST 用）
+ * @param {{timeoutMs?: number}} [opts] 逐调用超时覆盖（重活端点可放宽，快端点可收紧）
  * @returns {Promise<{status:number, json:any, text:string}>}
  */
-export async function api(method, path, body) {
+export async function api(method, path, body, opts = {}) {
+  const timeoutMs = Number(opts.timeoutMs || TIMEOUT_MS);
   const cookie = await login();
   const headers = { cookie, origin: HOST, accept: 'application/json' };
   let payload;
@@ -61,7 +75,16 @@ export async function api(method, path, body) {
     headers['content-type'] = 'application/json';
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`${HOST}${path}`, { method, headers, body: payload });
+  let res;
+  try {
+    res = await fetch(`${HOST}${path}`, { method, headers, body: payload, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (e) {
+    // 超时要能一眼看出「是这个接口没回」：直接说清路径与可能原因，不抛裸 AbortError。
+    const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+    throw new Error(`${method} ${path} 无响应（>${timeoutMs}ms）：${isTimeout
+      ? '路由未回响应（prefix 兜底缺失？）、宿主卡住，或该端点冷路径确实太慢（可传 {timeoutMs} 放宽）'
+      : String(e?.message ?? e)}`);
+  }
   const text = await res.text();
   let json = null;
   try { json = JSON.parse(text); } catch { /* 非 JSON 响应（如 ndjson）保持 text */ }

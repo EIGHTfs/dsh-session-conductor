@@ -54,13 +54,26 @@ whenToUse: 需要用本插件管理/操作会话但不确定怎么做、面板�
 - 面板能打开、四视图切换正常、列表有会话。
 - 操作后列表自动刷新。
 - `curl -s http://<DSH 地址>/api/session-conductor/list | python3 -m json.tool | head` 正常。
+- 全量测试：`node test/run-all.mjs`（判定看**退出码**，别只看 `# fail` 行——模块级崩溃不打 fail 行）。
 
-## 六、坑速查
+## 六、测试体系约定（改插件的 API/前端时照做）
+
+- `test/api/*` 只打**运行中宿主的 HTTP**，不 import 宿主包（免「测试依赖宿主包」的脆弱）；宿主不可用时明确跳过并说明，不伪装通过。
+- **首次调用走冷路径会明显慢**（实测：`/list` 冷 >20s、`delete-by-rule`（dryRun 全量扫描）热 47s / 冷 68s）。
+  所以 `test/api/helpers/host-api.mjs` 的默认超时是 **120s**（`SC_TIMEOUT_MS` 可覆盖，单次调用可传
+  `{ timeoutMs }`）：超时是为了让「路由没回响应」这类**真挂死**在几十秒内明确报错，而不是把「慢」当「挂」。
+- **每个 `register({kind:'prefix'})` 的路由都必须以响应收尾**（未匹配也要 404）——prefix 路由不会把请求
+  交回框架，漏写响应 = 请求永不返回。回归护栏：`test/unit/test-group-route-fallthrough.mjs`
+  （直接调 handler 断言必回 404，免宿主；把兜底注释掉该用例会红）。
+
+## 七、坑速查
 
 1. 撤回消息只删 source.kind==="user" 的真实用户消息（注入的 context/reminder 也是 user/message 类型，不会误删）。
 2. 自动续跑有上限：活跃会话 ≥12（maxAttached）暂停自动续跑；同会话 15 分钟冷却；每会话最多续 3 次。
 4. 删除运行中会话会被拒（先停或等回合结束）。
 5. systemPrompt section.text 只支持同步函数——插件内部 md 注入用同步读盘实现（用户无需关心，仅排查时注意）。
+6. `/api/session-conductor/group` 是 prefix 路由，整个子命名空间归本插件：**未匹配的路径/方法必须就地回 404**，
+   否则请求永不响应（历史事故：`GET /group` 缺 workspaceId 时挂死 → api 测试 timeout 124）。
 
 ## 相关
 
