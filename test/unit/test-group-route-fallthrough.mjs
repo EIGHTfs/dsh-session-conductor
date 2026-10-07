@@ -10,34 +10,10 @@
 //   用 mock req/res 断言「任何未匹配的路径/方法都必须就地收到 404」——把兜底行为钉死在单测里。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire, registerHooks } from 'node:module';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
-/**
- * 宿主依赖解析：lib/group.js 静态 import `@deepseek-ai/schemastery`，而工作区插件目录
- * 没有 node_modules（宿主启动时才从 profile 解析）。单测要 import 它就得分两处：
- *   ① 依赖目录沿用与 test/api/helpers/host-api.mjs 相同的约定（默认本机实例，SC_DSH_HOME/SC_DEPS 可覆盖）；
- *   ② 用 node:module 的 registerHooks 在 resolve 阶段把 `@deepseek-ai/*` 指过去。
- * 依赖缺失时本文件**明确跳过**并说明原因，而不是伪装通过。
- */
-const HOST_HOME = process.env.SC_DSH_HOME || '/volume1/@appdata/DeepSeekHarness-NAS/0.2.0-rc.2/.dsh';
-const DEPS = process.env.SC_DEPS || join(HOST_HOME, 'profiles', 'web', 'node_modules');
-const depsReady = existsSync(join(DEPS, '@deepseek-ai', 'schemastery'));
-const skip = depsReady ? false : `缺宿主依赖目录（${DEPS}，用 SC_DEPS 覆盖）`;
-
-if (depsReady) {
-  const req = createRequire(join(DEPS, 'noop.cjs'));
-  registerHooks({
-    resolve(spec, ctx, next) {
-      if (spec.startsWith('@deepseek-ai/') || spec.startsWith('@dsh-')) {
-        try { return next(pathToFileURL(req.resolve(spec)).href, ctx); } catch { /* 落回默认解析 */ }
-      }
-      return next(spec, ctx);
-    },
-  });
-}
+// 宿主依赖解析垫片（lib/group.js 静态 import @deepseek-ai/schemastery）：
+//   依赖缺失时本文件**明确跳过**并说明原因，而不是伪装通过。
+import { depsReady, skipReason } from './helpers/host-deps.mjs';
 
 const { registerGroupRoutes } = depsReady ? await import('../../lib/group.js') : {};
 
@@ -82,7 +58,7 @@ function withTimeout(promise, ms, label) {
   ]).finally(() => clearTimeout(timer));
 }
 
-test('prefix 路由：未匹配的路径/方法必须就地回 404（不得空响应挂死）', { skip }, async () => {
+test('prefix 路由：未匹配的路径/方法必须就地回 404（不得空响应挂死）', { skip: skipReason }, async () => {
   const spec = await captureHandler();
   assert.equal(spec.kind, 'prefix', '注册类型应为 prefix（子命名空间全归本插件）');
   assert.equal(spec.path, '/api/session-conductor/group');
@@ -102,7 +78,7 @@ test('prefix 路由：未匹配的路径/方法必须就地回 404（不得空�
   }
 });
 
-test('prefix 路由：handler 抛错时回 500 且仍然结束响应', { skip }, async () => {
+test('prefix 路由：handler 抛错时回 500 且仍然结束响应', { skip: skipReason }, async () => {
   const spec = await captureHandler();
   // 触发异常路径：url 解析失败（传入非法的 url 类型）
   const { res, state } = mockRes();

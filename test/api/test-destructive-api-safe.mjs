@@ -31,12 +31,26 @@ test('POST /delete-batch：空数组是空批（200，零删除）', { skip }, a
 
 test('POST /delete-by-rule：dryRun 预演（inactiveDays 3650 十年内无匹配）零删除', { skip }, async () => {
   // 用 dryRun + 极大的 inactiveDays 保证「只预演、不匹配任何会话」⇒ 绝不删数据。
-  // 超时放宽到 180s：该端点每次调用都**绕过列表缓存重建全量列表**（安全设计：删前不用旧数据），
-  //   **实测热调用仍要 47s**（冷 68s）才回 200 —— 是「慢」不是「挂」（真挂死会由 API 基座
-  //   的超时以「无响应」明确报出，不会伪装成通过）。
+  // 超时 180s 只作兜底：冷缓存首次仍要全量重建（实测冷 68s）——是「慢」不是「挂」，
+  //   真挂死会由 API 基座超时以「无响应」明确报出，不会伪装成通过。**真正删除**才强制取新数据。
   const r = await api('POST', '/api/session-conductor/delete-by-rule', { dryRun: true, inactiveDays: TEN_YEARS_DAYS }, { timeoutMs: 180000 });
   assert.notEqual(r.status, 500, `不该 500（实得 ${r.status}：${String(r.text).slice(0, 140)}）`);
   assert.equal(r.status, 200, `应回 200 预演结果（实得 ${r.status}）`);
+});
+
+test('POST /delete-by-rule：dryRun 预览走缓存（不再每次全量重建）', { skip }, async () => {
+  // 优化前：预览每次 buildSessionListCached({ force: true }) ⇒ 实测**热调用仍 ~48s**；
+  // 优化后：预览 force: !dryRun（走缓存），删除路径保持强制取新数据（安全语义不变）。
+  // 断言只看「量级差异」（有没有走全量重建，重建 ~48s），阈值 15s，不做精确性能断言。
+  const t0 = Date.now();
+  const r1 = await api('POST', '/api/session-conductor/delete-by-rule', { dryRun: true, inactiveDays: TEN_YEARS_DAYS }, { timeoutMs: 180000 });
+  const firstMs = Date.now() - t0;
+  assert.equal(r1.status, 200, `首次预览应 200（实得 ${r1.status}）`);
+  const t1 = Date.now();
+  const r2 = await api('POST', '/api/session-conductor/delete-by-rule', { dryRun: true, inactiveDays: TEN_YEARS_DAYS }, { timeoutMs: 180000 });
+  const secondMs = Date.now() - t1;
+  assert.equal(r2.status, 200, `第二次预览应 200（实得 ${r2.status}）`);
+  assert.ok(secondMs < 15000, `第二次预览应命中缓存（<15s），实测 ${secondMs}ms（首次 ${firstMs}ms）——接近首次说明又走了强制重建`);
 });
 
 test('POST /detach：空 body 必须 400（sessionId 必须非空字符串）', { skip }, async () => {
