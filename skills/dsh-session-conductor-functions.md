@@ -35,6 +35,7 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 | `/api/session-conductor/auto-continue-gate` | GET/POST | 自动续跑全局闸门（open/closed） |
 | `/api/task-completion/status` / `render` / `check` | GET/POST | 任务完成汇报管道 |
 | AI 工具 `list_models` / `set_member_model` | — | 成员模型切换（列模型 / 给指定成员切模型，见第九章） |
+| AI 工具 `context_usage` | — | 上下文用量自查（占用与构成，只读无参数，见第十章） |
 
 ## 二、会话生命周期操作
 
@@ -137,7 +138,31 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
   - ⚠️ **不要**用 `list_agents` 的 `model` 字段验收——它读 `agent.options.model`（成员创建时的静态值；`agent-team/src/roster.ts:138`）。
 - 注意：服务端插件代码改动需重启宿主才生效（ESM 模块缓存）。
 
-## 十、通用行为约定（浓缩自原全局 skill，约束所有 AI 所有会话）
+## 十、上下文用量自查（AI 工具 context_usage）
+
+- 用途：AI **按需**查自己这次会话的上下文占用与构成，不用等人转述界面上的圆环数字。
+- 无参数、纯只读：不触发模型调用、不写会话事件。
+- 输出示例：
+
+```
+上下文已用 8%
+~82K / 1M tokens
+（已用 = 下一个请求的预计提示词规模，含尚未发出的表面增量）
+
+上下文构成（启发式估算，非计费值）：
+  系统提示词  ~3.6K
+  工具定义  ~8.5K
+  对话消息  ~55.2K
+```
+
+- **数据来源**：官方 `contextPressure`（`contextWindow` / `pressureTokens` / `projectedTokens`）与 `contextBreakdown`（`systemTokens` / `toolsTokens` / `messageTokens`）两个会话投影，与界面「上下文已用」圆环**同源同口径**。
+- **已用口径**：优先 `projectedTokens`（下一个请求的预计提示词规模），退回 `pressureTokens`（provider 最新报告值）；百分比换算与前端 `context-occupancy.ts` 一致（含 100% 上限裁剪）。
+- 占用 **≥ 85%** 时输出附一条收敛建议（把大结果落盘、先小结已完成部分、或把剩余任务拆到新会话）。
+- ⚠️ **是启发式估算，不是计费值**（容量按约 4 字节/token 折算）。适合做压缩/分片决策；要计费口径请用官方 `tokenUsage` 投影（四桶 `uncachedInputTokens` / `outputTokens` / `cacheReadTokens` / `cacheWriteTokens`）。
+- **设计取舍（为什么是自查工具而不是每轮注入数值）**：每轮注入会让系统提示词前缀每轮变化 ⇒ prompt cache 失效 ⇒ 成本上升，且注入文本本身占 token（为知道用量反而多花）；工具定义固定不变，只在调用时才产生输出。DSH 官方 compaction 本就是**自动**触发（`agent/pre-step` + `thresholdRatio`），AI 不参与决策 —— 本工具面向的是「AI 需要主动决策」的场景（要不要先总结再继续、要不要分片、要不要把大结果落盘）。
+- **失败语义**：拿不到数据时如实说明原因（`exec.agent` 缺失 / `sessionProjections` 服务不可用 / 该路由还没上报 `contextWindow`），不抛异常、不返回空。
+
+## 十一、通用行为约定（浓缩自原全局 skill，约束所有 AI 所有会话）
 
 ### 任务开始与确认（analyze-then-confirm / ask-with-options / todo-ask-confirm）
 - 收到任务先分析（理解需求/现状/风险/方案/影响面），**列出本次读取/加载的每个 skill 及其来源路径**，确认后才动手。修改/删除/重启/安装/移动/推送等有副作用操作必须先确认。
