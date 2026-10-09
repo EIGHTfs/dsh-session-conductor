@@ -159,6 +159,7 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 - **已用口径**：优先 `projectedTokens`（下一个请求的预计提示词规模），退回 `pressureTokens`（provider 最新报告值）；百分比换算与前端 `context-occupancy.ts` 一致（含 100% 上限裁剪）。
 - 占用 **≥ 85%** 时输出附一条收敛建议（把大结果落盘、先小结已完成部分、或把剩余任务拆到新会话）。
 - ⚠️ **是启发式估算，不是计费值**（容量按约 4 字节/token 折算）。适合做压缩/分片决策；要计费口径请用官方 `tokenUsage` 投影（四桶 `uncachedInputTokens` / `outputTokens` / `cacheReadTokens` / `cacheWriteTokens`）。
+- **三项之和通常小于已用量**（实测 390K vs 243K）：已用量取自 `projectedTokens`，底座是 **provider 报告的真实提示词规模**；三个分项是**逐条启发式累加**，不含 reasoning tokens、附件与部分注入内容。所以「分项加起来对不上总数」是口径差异，不是算错。
 - **设计取舍（为什么是自查工具而不是每轮注入数值）**：每轮注入会让系统提示词前缀每轮变化 ⇒ prompt cache 失效 ⇒ 成本上升，且注入文本本身占 token（为知道用量反而多花）；工具定义固定不变，只在调用时才产生输出。DSH 官方 compaction 本就是**自动**触发（`agent/pre-step` + `thresholdRatio`），AI 不参与决策 —— 本工具面向的是「AI 需要主动决策」的场景（要不要先总结再继续、要不要分片、要不要把大结果落盘）。
 - **失败语义**：拿不到数据时如实说明原因（`exec.agent` 缺失 / `sessionProjections` 服务不可用 / 该路由还没上报 `contextWindow`），不抛异常、不返回空。
 
