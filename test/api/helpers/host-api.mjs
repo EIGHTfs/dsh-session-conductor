@@ -14,13 +14,27 @@
  *   assert.equal(r.status, 200);
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** 宿主基址（固定基准；可用环境变量覆盖以便在测试实例上跑） */
 export const HOST = process.env.SC_HOST || 'http://127.0.0.1:30801';
 /** DSH_HOME（默认取本机 0.2.0-rc.2 实例；token 从它的启动日志里取） */
-export const DSH_HOME = process.env.SC_DSH_HOME || '/volume1/@appdata/DeepSeekHarness-NAS/0.2.0-rc.2/.dsh';
+/**
+ * DSH_HOME 解析顺序：`SC_DSH_HOME`（手工指定）→ 宿主注入的 `DSH_HOME` → `DSH_APP_ROOT` 下探测。
+ * 为什么不再写死：原兜底写死 `…/0.2.0-rc.2/.dsh`（**含实例版本号**），实例升到 0.2.1-alpha.2 后
+ *   该路径即失效 —— 测试要么取不到 token、要么静默指向旧实例（本机确实同时存在两个实例目录）。
+ * 全程零硬编码锚点：不设任何环境变量时返回空串，由调用方按既有 skip 逻辑跳过。
+ */
+function detectDshHome() {
+  const root = process.env.DSH_APP_ROOT;
+  if (!root) return '';
+  try {
+    const names = readdirSync(root).filter((n) => existsSync(join(root, n, '.dsh'))).sort();
+    return names.length ? join(root, names[names.length - 1], '.dsh') : '';
+  } catch { return ''; }
+}
+export const DSH_HOME = process.env.SC_DSH_HOME || process.env.DSH_HOME || detectDshHome();
 /** 宿主启动日志（含「首次认证 http://…/?token=…」行） */
 const LOG_PATH = process.env.SC_LOG || join(DSH_HOME, '..', 'DeepSeekHarness-NAS.log');
 

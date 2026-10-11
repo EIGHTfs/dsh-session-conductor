@@ -15,12 +15,24 @@
  *   test('…', { skip: skipReason }, () => { … });
  */
 import { createRequire, registerHooks } from 'node:module';
-import { existsSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /** 宿主 DSH_HOME（默认本机 0.2.0-rc.2 实例，可用 SC_DSH_HOME 覆盖）。 */
-export const HOST_HOME = process.env.SC_DSH_HOME || '/volume1/@appdata/DeepSeekHarness-NAS/0.2.0-rc.2/.dsh';
+/**
+ * 宿主 DSH_HOME：`SC_DSH_HOME` → 宿主注入的 `DSH_HOME` → `DSH_APP_ROOT` 下探测（同 host-api.mjs）。
+ * 不再写死实例版本号（原写死 `…/0.2.0-rc.2/.dsh`，实例升级后失效）。
+ */
+function detectHostHome() {
+  const root = process.env.DSH_APP_ROOT;
+  if (!root) return '';
+  try {
+    const names = readdirSync(root).filter((n) => existsSync(join(root, n, '.dsh'))).sort();
+    return names.length ? join(root, names[names.length - 1], '.dsh') : '';
+  } catch { return ''; }
+}
+export const HOST_HOME = process.env.SC_DSH_HOME || process.env.DSH_HOME || detectHostHome();
 /** 宿主依赖目录（可用 SC_DEPS 覆盖）。 */
 export const DEPS = process.env.SC_DEPS || join(HOST_HOME, 'profiles', 'web', 'node_modules');
 /** 依赖是否就绪（用 schemastery 作探针：插件入口链上出现的首个宿主包）。 */
