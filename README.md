@@ -61,16 +61,34 @@
 
 ### 从 GitHub 安装（可选）
 
-本仓库是公开仓库，可直接用 GitHub 源安装（`dsh plugin` 会把参数转发给该 profile 的 pnpm）：
+本仓库是公开仓库，可直接用 GitHub 源安装。
+
+⚠️ **`dsh plugin --profile <名> add …` 当前实测会挂死且零输出**（两次都以 timeout 结束、日志为空）⇒
+安装请在**该 profile 目录里直跑 pnpm**（`dsh plugin` 的设计是把参数转发给 profile 的 pnpm，两者本应等价，
+但转发这条路目前不可用）：
 
 ```bash
-# github:<owner>/<repo> 与 git+https://… 两种写法等价
-dsh plugin --profile <profile> add github:EIGHTfs/dsh-session-conductor#<commit>
-dsh plugin --profile <profile> add git+https://github.com/EIGHTfs/dsh-session-conductor.git#<commit>
+cd <DSH_HOME>/profiles/<profile>
+pnpm add github:EIGHTfs/dsh-session-conductor#<commit>
+# 等价写法：pnpm add git+https://github.com/EIGHTfs/dsh-session-conductor.git#<commit>
 ```
 
-- 建议带 `#<commit>`（或分支）固定版本；不带则拉默认分支最新，不可复现。
-- 本仓库**远端目前没有 tag**（本地 v1.0.0 / v1.0.1 未推送）⇒ 用 commit 号比用 tag 稳。
+**前置条件**：
+
+1. **本机要有 `npm`** —— pnpm 构建 git 来源的包时会在临时目录执行 `npm install`；
+   缺 npm 时表现为 `ERR_PNPM_PREPARE_PACKAGE` + `spawn ENOENT: npm: command not found`。
+2. **pnpm 11 默认禁止 git 源依赖执行构建脚本** —— 仅**带 `prepare`/`prepack` 的插件**需要放行
+   （例：dsh-git-push 的 prepare 构建不入库的 `lib/client.js`）。**本仓库没有 prepare/prepack ⇒ 无需这一步**；
+   若安装的是那类插件，先在 profile 的 `pnpm-workspace.yaml` 里加：
+
+```yaml
+allowBuilds:
+  <包名>@https://codeload.github.com/<owner>/<repo>/tar.gz/<commit>: true
+```
+
+   ⚠️ key 里带 commit 哈希 ⇒ 换版本/换提交要同步改这一行；否则报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`。
+
+- 用 `#<commit>` 固定版本（本仓库远端暂无 tag，写 `#v1.0.x` 会拉不到）；公开仓库匿名可装，私有仓库才需凭据。
 - 装完同样要做上面的第 3、4 步（`dsh.profile.bundles` + `cordis.patch.yml` 的 `- insert:` + 重启确认 `loaded`）。
 
 ## 使用

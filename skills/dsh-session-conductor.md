@@ -113,20 +113,37 @@ dsh plugin --profile <profile> install
 
 ### 从 GitHub 安装（可选，公开仓库）
 
-`dsh plugin` 的 git 源由 pnpm 支持（`pnpm add <git host>:<user>/<repo>` / `pnpm add <git repo url>` /
-`pnpm add <tarball url>` 三种写法）：
+⚠️ **`dsh plugin --profile <名> add …` 实测会挂死且零输出**（两次都以 timeout 结束、日志为空）⇒
+安装改在**该 profile 目录里直跑 pnpm**（`dsh plugin` 的设计是把参数转发给 profile 的 pnpm，本应等价，
+但转发这条路当前不可用）：
 
 ```bash
-dsh plugin --profile <profile> add github:EIGHTfs/dsh-session-conductor#<commit>
-dsh plugin --profile <profile> add git+https://github.com/EIGHTfs/dsh-session-conductor.git#<commit>
+cd <DSH_HOME>/profiles/<profile>
+pnpm add github:EIGHTfs/dsh-session-conductor#<commit>
+# 等价：pnpm add git+https://github.com/EIGHTfs/dsh-session-conductor.git#<commit>
 ```
 
-注意：
-- **用 commit 号而不是 tag**：本仓库远端没有 tag（本地 v1.0.0 / v1.0.1 未推送），写 `#v1.0.8` 会拉不到；
-- 私有仓库才需要凭据（SSH key / 带 token 的 https）——本仓库公开，匿名可装；
-- **有 `prepare` 脚本的插件在 git 安装时会自动执行**（例：dsh-git-push 的 prepare 会构建客户端产物
-  `lib/client.js`，它本身不入库、只靠这一步生成）⇒ 装完应确认产物在；本仓库没有 prepare，装完即完整；
-- 装完仍要补 `dsh.profile.bundles` + `cordis.patch.yml` 的顶层 `- insert:`，再重启确认 `loaded`。
+**三层前置条件（实测按顺序踩到，缺一层就失败）**：
+
+1. **本机要有 `npm`** —— pnpm 构建 git 来源的包时会在临时目录执行 `npm install`；
+   缺 npm 时报 `ERR_PNPM_PREPARE_PACKAGE` + `spawn ENOENT: npm: command not found`。
+   （本机 2026-10-12 已装 npm 10.9.2：解包到 `<APP>/lib/node_modules/npm`，再链到
+   `/var/packages/DeepSeekHarness-NAS/target/.local/bin/npm` —— `/usr/local/bin` 不可写。）
+2. **pnpm 11 默认禁止 git 源依赖执行构建脚本**（供应链策略）：只有带 `prepare`/`prepack` 的插件
+   需要放行，在 profile 的 `pnpm-workspace.yaml` 里加，否则报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`：
+
+   ```yaml
+   allowBuilds:
+     <包名>@https://codeload.github.com/<owner>/<repo>/tar.gz/<commit>: true
+   ```
+
+   ⚠️ key 里带 commit 哈希 ⇒ 换版本/换提交要同步改这一行。**本仓库没有 prepare/prepack ⇒ 无需这一步。**
+3. **用 `#<commit>` 固定版本** —— 本仓库远端暂无 tag（写 `#v1.0.x` 会拉不到）。
+
+其它：公开仓库匿名可装、私有仓库才需凭据；装完仍要补 `dsh.profile.bundles` +
+`cordis.patch.yml` 的顶层 `- insert:`，再重启确认 `loaded`。
+（有 prepare 的插件在 git 安装时会自动执行它 —— 例：dsh-git-push 的 prepare 构建不入库的
+`lib/client.js`，装完应确认产物在；本仓库无 prepare，装完即完整。）
 
 ## 相关
 
