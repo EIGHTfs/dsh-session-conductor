@@ -111,6 +111,23 @@ dsh plugin --profile <profile> install
 
 （这条"不发 npm"的判断只写在本 skill 里供维护者参考；对外文档只写正确的安装方法。）
 
+### 从 GitHub 安装（可选，公开仓库）
+
+`dsh plugin` 的 git 源由 pnpm 支持（`pnpm add <git host>:<user>/<repo>` / `pnpm add <git repo url>` /
+`pnpm add <tarball url>` 三种写法）：
+
+```bash
+dsh plugin --profile <profile> add github:EIGHTfs/dsh-session-conductor#<commit>
+dsh plugin --profile <profile> add git+https://github.com/EIGHTfs/dsh-session-conductor.git#<commit>
+```
+
+注意：
+- **用 commit 号而不是 tag**：本仓库远端没有 tag（本地 v1.0.0 / v1.0.1 未推送），写 `#v1.0.8` 会拉不到；
+- 私有仓库才需要凭据（SSH key / 带 token 的 https）——本仓库公开，匿名可装；
+- **有 `prepare` 脚本的插件在 git 安装时会自动执行**（例：dsh-git-push 的 prepare 会构建客户端产物
+  `lib/client.js`，它本身不入库、只靠这一步生成）⇒ 装完应确认产物在；本仓库没有 prepare，装完即完整；
+- 装完仍要补 `dsh.profile.bundles` + `cordis.patch.yml` 的顶层 `- insert:`，再重启确认 `loaded`。
+
 ## 相关
 
 - dsh-session-conductor-functions（功能说明书，每个功能参数/返回/注意事项）

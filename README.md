@@ -59,6 +59,20 @@
 > 为什么放在 profile 的 `local-plugins/` 而不是全局：插件与宿主版本强绑定，放在 profile 内可随实例
 > 独立升级，也不会让多个 profile 互相污染。
 
+### 从 GitHub 安装（可选）
+
+本仓库是公开仓库，可直接用 GitHub 源安装（`dsh plugin` 会把参数转发给该 profile 的 pnpm）：
+
+```bash
+# github:<owner>/<repo> 与 git+https://… 两种写法等价
+dsh plugin --profile <profile> add github:EIGHTfs/dsh-session-conductor#<commit>
+dsh plugin --profile <profile> add git+https://github.com/EIGHTfs/dsh-session-conductor.git#<commit>
+```
+
+- 建议带 `#<commit>`（或分支）固定版本；不带则拉默认分支最新，不可复现。
+- 本仓库**远端目前没有 tag**（本地 v1.0.0 / v1.0.1 未推送）⇒ 用 commit 号比用 tag 稳。
+- 装完同样要做上面的第 3、4 步（`dsh.profile.bundles` + `cordis.patch.yml` 的 `- insert:` + 重启确认 `loaded`）。
+
 ## 使用
 
 ### 会话管理面板
