@@ -34,15 +34,30 @@
 
 ![模板注入设置](assets/screenshots/settings.png)
 
-## 安装（三步曲）
+## 安装
 
-1. **源码进 profile 真实目录**（禁止软链）：
-   - `profiles/web/local-plugins/<name>/`
-   - `profiles/web/node_modules/<name>/`
-2. **profile `package.json` 声明** `"dsh-session-conductor": "file:node_modules/dsh-session-conductor"`，必要时 `dsh.profile.bundles`。
-3. **bundle `cordis.patch.yml` 顶层 `- insert:`** 新建 loader 行（`dsh-bundle-patch-must-insert`）。
+装到哪个 profile 由 `--profile` 指定。`dsh plugin` 会把后面的参数**转发给该 profile 目录下的 pnpm**，
+因此第 2 步与「直接在该 profile 目录执行 pnpm」等价（该命令会初始化首次使用的 profile）。
 
-安装前先 dryrun 模拟（`install-plugin-dryrun-first`），安装后重启 DSH 生效。
+1. **把插件源码放进 profile 的真实目录**（目录拷贝，不要软链）：
+   ```
+   <DSH_HOME>/profiles/<profile>/local-plugins/dsh-session-conductor/
+   ```
+2. **用 dsh 在该 profile 里装依赖**（写入 profile 的 `package.json` 与 `node_modules/`）：
+   ```
+   dsh plugin --profile <profile> add file:local-plugins/dsh-session-conductor
+   dsh plugin --profile <profile> install
+   ```
+   装完 profile `package.json` 的 `dependencies` 里应出现
+   `"dsh-session-conductor": "file:local-plugins/dsh-session-conductor"`。
+3. **bundle 形态再补 loader 行**：把插件名加进 profile `package.json` 的 `dsh.profile.bundles`；
+   插件自带的 `cordis.patch.yml` 必须用顶层 `- insert:` **新建** loader 行 —— 顶层 `- id:` 是"覆盖已有行"，
+   基座没有该 id 时市场会报 `patch target not found`。
+4. **装前预演、装后确认**：装前先 dry-run（确认插件入口能被 import、patch 能进组合树、不破坏现有插件组合）；
+   装完重启宿主，并在实例日志里确认该插件 `loaded`。
+
+> 为什么放在 profile 的 `local-plugins/` 而不是全局：插件与宿主版本强绑定，放在 profile 内可随实例
+> 独立升级，也不会让多个 profile 互相污染。
 
 ## 使用
 

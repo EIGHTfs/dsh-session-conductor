@@ -75,6 +75,42 @@ whenToUse: 需要用本插件管理/操作会话但不确定怎么做、面板�
 6. `/api/session-conductor/group` 是 prefix 路由，整个子命名空间归本插件：**未匹配的路径/方法必须就地回 404**，
    否则请求永不响应（历史事故：`GET /group` 缺 workspaceId 时挂死 → api 测试 timeout 124）。
 
+## 八、安装与发布
+
+### 装到 profile（正确姿势）
+
+`dsh plugin` 会把参数**转发给指定 profile 目录下的 pnpm**（首次使用会初始化该 profile），
+所以下面的命令与「在 profile 目录里直接跑 pnpm」等价：
+
+```bash
+# 1) 源码进 profile 的真实目录（目录拷贝，不要软链）
+cp -r <本插件目录> "$DSH_HOME/profiles/<profile>/local-plugins/dsh-session-conductor"
+
+# 2) 用 dsh 在该 profile 装依赖（写入 profile 的 package.json 与 node_modules/）
+dsh plugin --profile <profile> add file:local-plugins/dsh-session-conductor
+dsh plugin --profile <profile> install
+```
+
+装完检查三件事：
+1. profile `package.json` 的 `dependencies` 里有 `"dsh-session-conductor": "file:local-plugins/dsh-session-conductor"`；
+2. `dsh.profile.bundles` 里有插件名；
+3. 插件自带的 `cordis.patch.yml` 用的是**顶层 `- insert:`** —— 顶层 `- id:` 是"覆盖已有行"，
+   基座没有该 id 时市场会报 `patch target not found`。
+
+装前先 dry-run 预演（入口能否 import、patch 能否进组合树、是否破坏现有插件组合）；装后重启宿主，
+并在实例日志里确认该插件 `loaded`。
+
+### 本仓库按 npm 包规范组织，但**不发 npm 包**
+
+`package.json`（`main` / `exports` / `files` / `scripts`）、依赖声明、`npm test` 这些是**按 npm 包规范**写的，
+好处是工具链（pnpm 安装、ESM 解析、`file:` 依赖）开箱即用；但本插件**不打算发布到 npm registry**：
+
+- 插件与宿主 DSH 版本强绑定（`peerDependencies` / cordis 契约），发到公共 registry 无法保证版本匹配；
+- 安装路径只走**本地/源码**（`local-plugins/` + `file:` 依赖），不走 `npm i <包名>`；
+- 因此 README 等对外文档只描述本地安装步骤，**不写**"发不发 npm"这类说明（免得读者去 registry 找包）。
+
+（这条"不发 npm"的判断只写在本 skill 里供维护者参考；对外文档只写正确的安装方法。）
+
 ## 相关
 
 - dsh-session-conductor-functions（功能说明书，每个功能参数/返回/注意事项）
