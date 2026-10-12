@@ -302,6 +302,23 @@ function findReactUmd(explicitDir, startDir) {
       roots.push(join(dirname(v), 'node_modules'));
     }
   }
+  // DSH 0.2.x 实测布局：react 装在**数据目录的 profile** 里
+  //   （<DSH_HOME>/profiles/<profile>/node_modules/react），安装根 / checkout 根都没有 react
+  //   ⇒ 上面的 root 全落空（2026-10-13 本机复现：报「找不到 react UMD」）。
+  //   这里补 profile 目录与 DSH_HOME 缓存；命中判定仍由下面的 candidates 循环按**目标文件**做。
+  {
+    const profDir = process.env.DSH_PROFILE_DIR;
+    if (profDir) roots.push(join(profDir, 'node_modules'));
+    const home = process.env.DSH_HOME;
+    if (home) {
+      try {
+        for (const p of readdirSync(join(home, 'profiles'))) roots.push(join(home, 'profiles', p, 'node_modules'));
+      } catch { /* 无 profiles 目录 */ }
+      roots.push(join(home, 'cache', 'react-umd'));
+      roots.push(join(home, 'cache', 'react-umd', 'react'));
+      roots.push(join(home, 'cache', 'react-umd', 'react-dom'));
+    }
+  }
   const found = { react: null, reactDom: null };
   for (const root of roots) {
     const pnpm = join(root, '.pnpm');

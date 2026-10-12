@@ -21,6 +21,10 @@ if [ ! -f "$TOOL" ]; then
   exit 2
 fi
 ARGS=(--plugin "$ROOT" --port "${PORT:-31100}")
-[ -f "$ROOT/assets/preview.html" ] && ARGS+=(--preview "$ROOT/assets/preview.html")
+# 本插件**没有** assets/preview.html（生成器也没有）：预览是 assets/preview-panel.html /
+#   assets/preview-settings.html，配套 tools/preview-snapshot.sh + tools/screenshot-preview.mjs，
+#   不经 mini-host 提供。原先这行是从模板抄来的**死分支**——条件永不命中、缺失时也永不报错，
+#   容易被误读成「预览页会由 minihost 提供」。2026-10-13 改为注释保留痕迹。
+# [ -f "$ROOT/assets/preview.html" ] && ARGS+=(--preview "$ROOT/assets/preview.html")
 [ -d "$ROOT/lib" ] && ARGS+=(--static "$ROOT/lib")
 exec "${NODE_BIN:-node}" "$TOOL" "${ARGS[@]}" "$@"
