@@ -5,7 +5,7 @@
 
 | 版本 | 内容 |
 |------|------|
-| 1.0.8 | 测试 helper 不再写死实例路径：`DSH_HOME` / `HOST_HOME` 解析改为 `SC_DSH_HOME` → 宿主注入的 `DSH_HOME` → `DSH_APP_ROOT` 探测（原兜底写死 `…/0.2.0-rc.2/.dsh`，含实例版本号，实例升级到 0.2.1-alpha.2 后失效） |
+| 1.0.8 | ① 修「全新浏览器上下文（空 localStorage）下侧边栏『会话管理』入口整块消失」：`readListCache()` 在无缓存 / 缓存损坏 / `sessions` 非数组时由返回 `null` 改为返回**空数组**，`insertSorted` 再对 `cur` 做数组兜底——原先 `sessions` 初值为 `null`，流式 `/list` 追加时 `cur.filter` 抛 `TypeError: Cannot read properties of null (reading 'filter')`，React 更新器抛错导致 `sidebar.footer.action` 插槽崩溃（入口消失 + 每次加载两条控制台红字）。补回归单测 `test/unit/test-list-cache-null-guard.mjs`（假 localStorage 执行分片：无缓存 / 坏 JSON / 非数组 / 正常往返 + `insertSorted` 结构护栏）<br>② 测试 helper 不再写死实例路径：`DSH_HOME` / `HOST_HOME` 解析改为 `SC_DSH_HOME` → 宿主注入的 `DSH_HOME` → `DSH_APP_ROOT` 探测（原兜底写死 `…/0.2.0-rc.2/.dsh`，含实例版本号，实例升级到 0.2.1-alpha.2 后失效） |
 | 1.0.7 | 新增 `context_usage` 上下文用量自查工具——AI 可按需查当前会话的占用（百分比、已用/容量 tokens）与构成（系统提示词/工具定义/对话消息），数据取自官方 `contextPressure`/`contextBreakdown` 投影（与界面圆环同源）；占用达 85% 时输出附收敛建议。设计取舍：用「自查工具」而非每轮注入数值，避免系统提示词前缀每轮变化破坏 prompt cache |
 | 1.0.6 | dsh-session-conductor 1.0.6 —— 结构/审计低风险优化 + 移除冗余工具 + 分片可独立校验 |
 | 1.0.5 | 测试体系改造为「打 HTTP API」+ 修「分组下新建会话」恒 500 |
