@@ -108,10 +108,15 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 - API：GET /api/session-conductor/templates；POST {slot, name, content} / {slot, url} / {slot, enabled} / {slot, action:"remove"} / {slot, action:"pickPath", path} / **{slot:'plan', enforce}**。
 - ** 强制门禁**：`plan.enforce=true` 时，未按方案模板出提案并获用户「确认」前，代码修改类工具调用被 `tools/pre-execute` waterfall 直接拒绝（`{kind:'deny'}`），拒绝理由指导 AI 先出提案。
   - 拦的工具：edit / write / apply（全拦）+ bash 写操作启发式（`>`/`>>` 重定向、sed -i、rm、mv、cp、tee、mkdir、touch、chmod/chown、git commit/reset/checkout --、patch、truncate、dd）。只读工具（read/grep/glob）永不拦。
-  - 门判定**无状态**：每次拦截从会话事件流现场推导——「提案」= 确认消息之前那一段 AI 输出同时含提案标题（修改方案提案）+ 确认段（八、是否执行）双标记；「确认」= 最后一条**真人**用户消息命中确认词（严格式：整条仅确认词如 确认/同意/OK；宽松式：含 确认/同意/按方案执行/执行吧/go ahead）。系统注入消息（Current runtime context / The user said / <system-reminder> / 【dsh- / 🔑）自动跳过。
+  - 门判定**无状态**：每次拦截从会话事件流现场推导——「提案」= 确认消息之前那一段 AI 输出同时含**标题锚点**（`修改方案提案` 或 `门禁表`）+ **确认段锚点**（`是否执行` / `请回复确认` / `确认或修改方案` / `等待…确认`（正则））双标记，**两个锚点都不含章节号**（模板章节号会改版，锚点写死章节号会让门禁在模板改版后永久拒绝所有编辑——2026-10-15 实测踩过）；「确认」= 最后一条**真人**用户消息命中确认词（严格式：整条仅确认词如 确认/同意/OK；宽松式：含 确认/同意/按方案执行/执行吧/go ahead）。系统注入消息（Current runtime context / The user said / <system-reminder> / 【dsh- / 🔑）自动跳过。
   - 无状态的好处：重启零恢复问题，门状态永远由真实对话记录决定，不与内存缓存打架。
   - 子 agent 豁免：delegationDepth>0 的会话放行（子 agent 无法交互确认；主会话是强制执行点）。
   - 门禁故障 fail-open（catch 里 next() + 留痕日志），不阻断工具链。
+  - **坑（2026-10-15 实测）**：
+    - **现象**：模板把「是否执行」从第八节移到第十一节后，锚点（字面量 `八、是否执行`）与模板脱节；一旦 `plan.enforce=true`，**AI 照模板写方案也过不了锚点 ⇒ 所有 edit/write 被永久拒绝**，而 deny 文案只说「请先出提案」，不提示「锚点不匹配」。
+    - **根因**：把**排版细节（章节号）**当成了语义锚点。章节号会随模板改版漂移，语义标题（「是否执行」）不会。
+    - **解决**：锚点改为语义匹配——`PLAN_ENFORCE_PROPOSE_TITLES`（标题）+ `PLAN_ENFORCE_PROPOSE_CONFIRM_ANCHORS`（确认段），各任一命中即成立；同步修掉 deny 文案里的同一处写死。
+    - **防再犯**：① 门禁/校验类锚点**一律不锁章节号、序号、行号**，只匹配语义文本；② 改模板章节号时，同步 grep 锚点常量与 deny 文案；③ 单测固定留一条「章节号变了仍认提案」的回归护栏（`test/unit/test-template-inject.mjs`）。
   - 开关即时生效（`templateStateCache` 热更新），无需重启；注入文本同步声明拦截口径，AI 与拦截器同一约定。
 
 ## 八、压缩模型选择

@@ -246,6 +246,33 @@ ok("v1.35 门：提案缺确认段标记 → 不算提案", () => {
   assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst("# 修改方案提案\n\n仅目标说明"), gUser("确认")]), false);
 });
 
+// ── 锚点不锁章节号（2026-10-15 修复的回归护栏）──────────────────────────────
+// 背景：旧锚点是字面量「八、是否执行」。模板把「是否执行」从第八节移到第十一节后，
+//   锚点与模板脱节 ⇒ AI 照模板写方案也过不了 ⇒ 门禁一旦 enforce 就拒绝所有 edit/write。
+ok("门：章节号变了仍认提案（不锁章节号）", () => {
+  const shifted = "# 修改方案提案\n\n## 一、修改目标\n（目标）\n\n## 十一、是否执行？\n\n请回复「确认」";
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(shifted), gUser("确认")]), true);
+});
+
+ok("门：无章节号（模板改版后只剩语义标题）也认", () => {
+  const noNumber = "# 修改方案提案\n\n（正文）\n\n是否执行？\n请回复确认";
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(noNumber), gUser("确认")]), true);
+});
+
+ok("门：门禁表模板（门禁表 + 请回复确认）也认", () => {
+  const gateTable = "# 方案\n\n【门禁表·写代码前必填】\n任务：改 X\n\n一、任务理解\n（…）\n\n请回复确认";
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(gateTable), gUser("确认")]), true);
+});
+
+ok("门：收尾措辞「等待…确认」也认（正则锚点，不落字面量）", () => {
+  const tail = "# 修改方案提案\n\n（正文）\n\n是否执行？\n\n（等待对方确认，不主动开始改代码）";
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(tail), gUser("确认")]), true);
+});
+
+ok("门：有确认段锚点但缺标题锚点 → 不算提案", () => {
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst("## 八、是否执行？\n请回复确认"), gUser("确认")]), false);
+});
+
 ok("v1.35 门：空事件 / 单条用户消息 → 拦", () => {
   assert.strictEqual(planGateAllows([]), false);
   assert.strictEqual(planGateAllows([gUser("确认")]), false);
