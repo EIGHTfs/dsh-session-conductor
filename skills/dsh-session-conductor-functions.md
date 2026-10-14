@@ -168,7 +168,24 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 - **设计取舍（为什么是自查工具而不是每轮注入数值）**：每轮注入会让系统提示词前缀每轮变化 ⇒ prompt cache 失效 ⇒ 成本上升，且注入文本本身占 token（为知道用量反而多花）；工具定义固定不变，只在调用时才产生输出。DSH 官方 compaction 本就是**自动**触发（`agent/pre-step` + `thresholdRatio`），AI 不参与决策 —— 本工具面向的是「AI 需要主动决策」的场景（要不要先总结再继续、要不要分片、要不要把大结果落盘）。
 - **失败语义**：拿不到数据时如实说明原因（`exec.agent` 缺失 / `sessionProjections` 服务不可用 / 该路由还没上报 `contextWindow`），不抛异常、不返回空。
 
-## 十一、通用行为约定（浓缩自原全局 skill，约束所有 AI 所有会话）
+## 十一、跨会话消息与指定模型新建会话（AI 工具 list_sessions / send_to_session / create_session）
+
+三个工具都在 `lib/features/session-messaging/`，由 `apply.js` 在 `inject('tools')` 回调里注册（注册整体包 try/catch，失败只留痕、不连累同批工具）。
+
+| 工具 | 用途 | 关键参数 |
+|---|---|---|
+| `list_sessions` | 列出本机会话（id / 标题 / 工作区 / 状态 / 最后活动 / 是否当前会话） | 无 |
+| `send_to_session` | 给另一个会话投递消息（不经过人转达） | `sessionId`、`text`、`mode`(queue/steer)、`requestId`、`hops` |
+| `create_session` | 新建会话并可指定模型，可选带初始消息 | `provider`+`model`、`cwd`/`workspaceId`、`sessionId`、`text` |
+
+- **状态含义**（`list_sessions` 输出）：`running` = 正在跑回合；`idle` = 已挂载但空闲；`inactive` = 冷会话（未挂载，投递时会被唤醒）。
+- **投递语义**：默认 `mode:"queue"` —— 目标空闲时**由本体自动唤醒**它跑一个回合；目标运行中则排到其下一回合边界。`mode:"steer"` 改为注入目标**正在跑**的那个回合。
+- **实现口径（重要）**：全部走本体官方 `sessionController` 的 `@Remote` 方法 —— `create` / `selectModel` / `prompt`。**不自己写会话日志**：inbox 家族只有 `agent/inbox/spliced` 落盘，其 fold 对非法 splice（id 重复、start 越界）**直接抛错**，自己写等于拿对方会话的完整性冒险。`prompt` 的受理流程会先 resume 目标会话，唤醒语义由本体保证；`requestId` 是幂等键（本体持久化在那条被接受的消息上），重试传同键不会重复投递。
+- **`create_session` 为什么是两步**：本体 `SessionCreateRequest` 只有 `workspaceId? / cwd? / sessionId? / agentPreset?`，**没有 model 字段**，所以必须 `create` → `selectModel`。任一步失败都如实回执（如「⚠️ 会话已建，但模型未设置」），**不谎报成功**。
+- **安全硬约束**（防唤醒风暴，缺一不可）：① 禁自投；② 协作链 `hops ≥ 3` 拒绝并提示改用共享文件；③ 同一对会话 60s 内最多 5 条；④ `requestId` 幂等 + 在途去重；⑤ 只投递、**不读对方会话内容**。
+- **何时不该用它**：需要交接上下文 / 长内容 / 可追溯 —— 落共享文件（如工作区下的交接 md）+ git 提交信息，消息里只放路径与要点；需要人做决策或跨机器 —— 人转达。
+
+## 十二、通用行为约定（浓缩自原全局 skill，约束所有 AI 所有会话）
 
 ### 任务开始与确认（analyze-then-confirm / ask-with-options / todo-ask-confirm）
 - 收到任务先分析（理解需求/现状/风险/方案/影响面），**列出本次读取/加载的每个 skill 及其来源路径**，确认后才动手。修改/删除/重启/安装/移动/推送等有副作用操作必须先确认。
