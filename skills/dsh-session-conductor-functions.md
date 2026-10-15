@@ -136,7 +136,8 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
   - **同时仍写 `model/selection` 事件**：让官方 `agent/pre-step` 追加 `[model changed: …]` 通知（可观测痕迹）。
   - **成员状态**：未挂载（inactive）**也能切**——override 落 domain；若会话日志里还没有该选择，会把事件直接写进会话日志（`appendSelectionEventToLog`，解码 → 追加 → 校验 → 备份 → 原子写回）。正在执行回合时会**先等它暂停**（`whenIdle`，最长 60s）再切。
 - **验收方式（重要）**：
-  - ✅ **请求级权威记录**：`request/header` 的 `config.model`——**连续多轮都应是新模型**（这是「跨轮持久」的唯一可靠证据）。
+  - ✅ **现在不用自己查了**：`set_member_model` 的返回值**直接带查证**——立刻给「最近一次实际请求的 provider/model + 最近一次切换意图 + 一行判定」，并**注册查证任务（不阻塞）**：该成员下次发起请求时由 `agent/request` 事件判定（插件本来就拦这个事件改模型），确认结果在下一次 step 注入给发起方。想要更细的自查，用返回值里附的复核命令 `node scripts/check-member-model.mjs <sessionId>`。
+  - ✅ **请求级权威记录**：`request/header` 的 `data.header.config.{provider,model}` —— 注意是**两层**（`data.header.config`，不是 `data.config`）；**连续多轮都应是新模型**（这是「跨轮持久」的唯一可靠证据）。
   - ✅ 会话 `model/selection` 事件（切换意图落盘）。
   - ✅ projcache `modelSelection.lastUsed` / `pending`（官方投影状态）。
   - ⚠️ **不要**只用 `model/selection` 事件或会话内注入的 `[model changed: …]` 提示下结论——实测出现过「提示是 agnes、请求头仍是 wb」的不一致。
