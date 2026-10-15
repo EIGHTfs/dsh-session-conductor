@@ -36,6 +36,25 @@
 
 ![模板注入设置](assets/screenshots/settings.png)
 
+## 环境要求（支持的 DSH 版本）
+
+| 项 | 要求 |
+|---|---|
+| **DSH 版本** | **0.2.1 及以上（推荐）**；0.2.x 早期版本功能可用，但**列表缓存不生效**（见下） |
+| Node | 与宿主 DSH 自带的 Node 一致（无需额外安装） |
+| 平台 | Linux（群晖 DSM / fnOS 等）；纯 Node 实现，无原生依赖 |
+
+**为什么 0.2.1 是推荐下限**：本插件的会话列表缓存依赖 `sessionPersistence.list()` 返回的
+**`SessionPersistenceSnapshot`**（`{ header, revision, eventCount?, sizeBytes? }`）里的 `revision`
+作为「日志变过没有」的变更令牌。0.2.1 起该 API 稳定提供 `revision`；更早的版本里
+`list()` 只给裸 header（没有 `revision`），插件会**优雅降级**：功能全部正常，
+只是每次列表构建都要重新解析会话日志（会话多、日志大时会明显变慢、内存占用高）。
+
+> 早期代码曾探测 `persistence.listSnapshots()` 并期望它返回 `{ header, revision }` ——
+> 该 session 级方法**在任何 DSH 版本里都不存在**（0.1.6 里同名的 `listSnapshots(profileDir)`
+> 是 profile 快照，另一套东西），所以那个探测永远失败、缓存从未生效过。
+> 1.2.0 起统一改用 `list()` 并按快照解析。
+
 ## 安装
 
 装到哪个 profile 由 `--profile` 指定。`dsh plugin` 会把后面的参数**转发给该 profile 目录下的 pnpm**，
