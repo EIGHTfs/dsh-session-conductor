@@ -59,10 +59,24 @@ test('list.js：归档补全循环必须有守卫（防御层）', () => {
   assert.match(m[0], /if \(!isValidSessionId\(id\)\) continue;/, '补全循环必须先跳过非法 id');
 });
 
-test('list.js：persistence.list 回退路径必须校验 id', () => {
-  const m = LIST_SRC.match(/for \(const meta of await persistence\.list\(\)\) \{[\s\S]*?\n {8}\}/);
-  assert.ok(m, '未找到 persistence.list 回退循环（结构变了要同步本测试）');
-  assert.match(m[0], /if \(!isValidSessionId\(meta\?\.id\)\) continue;/, '回退路径必须校验 meta.id');
+test('list.js：persistence.list 的条目必须按快照解析、校验 id、带上 revision', () => {
+  const m = LIST_SRC.match(/for \(const entry of await persistence\.list\(\)\) \{[\s\S]*?\n {8}\}/);
+  assert.ok(m, '未找到 persistence.list 循环（结构变了要同步本测试）');
+  assert.match(
+    m[0],
+    /const header = entry\?\.header \?\? entry;/,
+    '必须按 SessionPersistenceSnapshot 解析（entry.header 优先，兼容旧的裸 header）',
+  );
+  assert.match(
+    m[0],
+    /if \(!isValidSessionId\(header\?\.id\) \|\| liveIds\.has\(header\.id\)\) continue;/,
+    '必须校验 id 并跳过 live 会话',
+  );
+  assert.match(
+    m[0],
+    /revision: revision == null \? null : String\(revision\)/,
+    '必须带上 revision —— 漏了它缓存条目永不进缓存（历史 bug：宿主 list() 返回快照，旧代码当 header 用、revision 恒 null）',
+  );
 });
 
 test('list.js：emit 必须守住不变量（单咽喉点兜底）', () => {

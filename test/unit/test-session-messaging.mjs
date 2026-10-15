@@ -343,3 +343,57 @@ test('formatSessionList：缺 id 的脏条目被跳过并如实标注', () => {
 test('formatSessionList：全是脏数据时给出明确说明', () => {
   assert.match(formatSessionList([{ title: 'x' }], null), /没有可用会话（1 条缺 id 的脏数据已跳过）/);
 });
+
+// ── 分页与过滤（会话一多，整表输出会白烧调用方上下文）─────────────────────
+
+/** 造 n 个会话条目，标题/工作区可辨识。 */
+function manySessions(n) {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `session-${String(i).padStart(3, '0')}`,
+    title: i % 2 === 0 ? `偶数组-${i}` : `奇数组-${i}`,
+    cwd: `/w/${i % 3}`,
+    live: i < 2,
+    updatedAt: 1_700_000_000_000 + i,
+  }));
+}
+
+test('formatSessionList：limit 只给一页，并提示下一页的 offset', () => {
+  const text = formatSessionList(manySessions(50), null, { limit: 10 });
+  assert.match(text, /共 50 个会话/);
+  assert.match(text, /本页 10 条（offset 0）/);
+  assert.match(text, /还有 40 条，用 offset=10 取下一页/);
+  assert.equal((text.match(/^- session-/gm) ?? []).length, 10, '只应渲染 10 行');
+});
+
+test('formatSessionList：offset 翻页且末页不再提示', () => {
+  const text = formatSessionList(manySessions(25), null, { limit: 10, offset: 20 });
+  assert.match(text, /本页 5 条（offset 20）/);
+  assert.ok(!/取下一页/.test(text), '末页不该再提示下一页');
+  assert.equal((text.match(/^- session-/gm) ?? []).length, 5);
+});
+
+test('formatSessionList：offset 越界给明确提示而不是报错/空输出', () => {
+  const text = formatSessionList(manySessions(5), null, { limit: 10, offset: 99 });
+  assert.match(text, /offset 99 超出范围（共 5 个会话，本页 0 条）/);
+});
+
+test('formatSessionList：query 按 id/标题/工作区子串过滤（不区分大小写）', () => {
+  const byTitle = formatSessionList(manySessions(20), null, { query: '偶数组', limit: 100 });
+  assert.match(byTitle, /（匹配「偶数组」）/);
+  assert.equal((byTitle.match(/^- session-/gm) ?? []).length, 10, '20 条里偶数标题应命中 10 条');
+  const byId = formatSessionList(manySessions(20), null, { query: 'SESSION-00' });
+  assert.equal((byId.match(/^- session-/gm) ?? []).length, 10, 'id 匹配也要支持且大小写无关');
+  const byCwd = formatSessionList(manySessions(9), null, { query: '/w/2' });
+  assert.equal((byCwd.match(/^- session-/gm) ?? []).length, 3, '按工作区子串过滤');
+});
+
+test('formatSessionList：query 无命中时说明清楚（不是「没有可见会话」）', () => {
+  const text = formatSessionList(manySessions(7), null, { query: '不存在的关键词' });
+  assert.match(text, /没有匹配「不存在的关键词」的会话（共 7 个）/);
+});
+
+test('formatSessionList：不传 limit 仍返回全部（保持既有调用方语义）', () => {
+  const text = formatSessionList(manySessions(30), null);
+  assert.equal((text.match(/^- session-/gm) ?? []).length, 30);
+  assert.ok(!/取下一页/.test(text));
+});

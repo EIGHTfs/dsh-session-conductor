@@ -23,7 +23,7 @@
 | 自动重命名模型 | 指定便宜/专用模型做标题分析 | 设置 → 会话管理 |
 | 成员模型切换 | 给队友/子代理单独切模型（只动该成员会话，不影响其他成员）：先用 `list_models` 拿确切模型 id，再 `set_member_model` 按成员名/sessionId 切换（写 `model/selection` 事件交给官方投影接管，跨轮持久；未挂载成员也能切，运行中会先等它暂停） | AI 工具 `list_models` / `set_member_model` |
 | 上下文用量自查 | AI 按需查自己会话的上下文占用（百分比、已用/容量 tokens）与构成（系统提示词/工具定义/对话消息），占用达 85% 时附收敛建议。数据与界面圆环同源（官方 `contextPressure` / `contextBreakdown` 投影），只读、无参数。**另：每轮把实时用量注入消息尾部**（AI 每轮都能直接看到数字；注入在尾部而非系统提示词前缀 ⇒ 前缀稳定、prompt cache 仍命中；按 turn 门控，一回合只注一次；配置 `injectContextUsage` 可关） | AI 工具 `context_usage` + 每轮注入 |
-| 跨会话消息 | AI 直接给另一个会话发消息（不经过人转达）：先 `list_sessions` 挑目标，再 `send_to_session` 投递；目标空闲时**由本体自动唤醒**它跑一个回合，运行中则排到其下一回合边界（`mode:"steer"` 改为注入当前回合）。全部走本体官方 `prompt` API（幂等 `requestId`、不自己写会话日志）。**支持 `dryRun` 预览**（报告目标状态与限流余量，不投递、不消耗配额）。硬约束：禁自投、协作链跳数 ≥3 拒绝、同一对会话 60s 内最多 5 条 | AI 工具 `list_sessions` / `send_to_session` |
+| 跨会话消息 | AI 直接给另一个会话发消息（不经过人转达）：先 `list_sessions` 挑目标，再 `send_to_session` 投递；目标空闲时**由本体自动唤醒**它跑一个回合，运行中则排到其下一回合边界（`mode:"steer"` 改为注入当前回合）。全部走本体官方 `prompt` API（幂等 `requestId`、不自己写会话日志）。**支持 `dryRun` 预览**（报告目标状态与限流余量，不投递、不消耗配额）。`list_sessions` 支持 **`query` 子串过滤 + `limit`/`offset` 分页**（默认只给 20 条，避免整表塞进调用方上下文）。硬约束：禁自投、协作链跳数 ≥3 拒绝、同一对会话 60s 内最多 5 条 | AI 工具 `list_sessions` / `send_to_session` |
 | 指定模型新建会话 | AI 新建会话并可**直接指定 provider/model**（建完即切到该模型），可选带一条初始消息让它立刻开始干活。**缺省工作目录 = 调用方会话自己的 cwd**（不落在 DSH 安装目录里）。本体 `create` 本身不带模型，所以是 `create` → `selectModel` 两步；任一步失败会如实回执（如「会话已建，但模型未设置」），不谎报成功。**支持 `dryRun` 预览**（含模型是否存在于目录的核对），不建会话 | AI 工具 `create_session` |
 
 ## 界面预览
