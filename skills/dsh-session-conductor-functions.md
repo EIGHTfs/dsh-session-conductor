@@ -227,6 +227,37 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 ### 节约模式（token-saving-mode）
 - 用户表达节约 token 意愿（"省点""节约"）时启用：直达答案不客套、结构优先、默认 ≤200 字或 10 行代码、禁冗余、复杂问题先结论后理由、高峰价格用户自己留意勿主动提醒。
 
+## 十三、记忆取回（memory-recall，1.3.0 起）
+
+**解决什么**：上下文被压缩、截断，或实例重启后快照未加载时，AI 会「失忆」——重复提问、重复劳动、
+误解需求。而用户消息在上下文里占比极小（1M 上下文可能总共没超过 3 句），却最不该丢。
+
+**两条通道**：
+
+| 通道 | 触发 | 参数 |
+|---|---|---|
+| **自动注入** | 每回合比较上下文已用量：本次比上次下降 ≥ `retrieveMemoryMinDropRatio`（默认 0.10）⇒ 判定「疑似丢失」，取回后与用量行**合并成一条**注入（消息尾部） | 无（走配置） |
+| **AI 工具 `recall_memory`** | AI 自己想回溯时主动调用 | `rounds` = 取几轮（默认取配置，上限 50） |
+
+**取什么**：最近 N 轮（默认 3）的**用户消息文本** + 该轮 **AI 的第一条回应**（优先 reasoning，缺失取正文）。
+
+- 以用户消息为锚：占比小但信息密度最高，是恢复上下文的支点；
+- 要 AI 的第一条回应：那是「当时」对消息的理解，直接给结论，省得重新推测。
+
+**实现要点（改这里前先读）**：
+
+- 读取走 `readRecentUserTurns`（`lib/sessions/events.js`）：按 zstd 帧**流式**读日志文件，
+  常量内存（实测 3 轮 27 ms / heap 6.1 MB）；
+- 锚点只认 `user/message` 且 `data.source.kind === "user"` —— **必须排除插件自身注入**
+  （`plugin:dsh-session-conductor`）与 `runtime-context`，否则注入块会被下一轮取回形成反馈环；
+- `agent/inbox/spliced` 是同一句话的投递副本，**忽略**（否则一轮会数成两条）；
+- 同回合内（其间无 `turn/end`）连续多条用户消息**合并成一轮**；
+- 无论是否触发都记账（`noteUsage`），否则读取失败会每回合反复触发；
+- 任何一步失败（日志缺失/损坏、用量读不到、首回合无上次用量）都静默返回 null，绝不阻断回合。
+
+**配置**：`retrieveMemory`（默认开）/ `retrieveMemoryRounds`(3) / `retrieveMemoryMinDropRatio`(0.10) /
+`retrieveMemoryMinDropTokens`(0) / `retrieveMemoryMaxChars`(4000) / `retrieveMemoryMaxCharsPerItem`(800)。
+
 ## 相关
 
 - dsh-session-conductor（使用手册，与本文档配套）
