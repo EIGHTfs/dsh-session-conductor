@@ -165,7 +165,8 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 - 占用 **≥ 85%** 时输出附一条收敛建议（把大结果落盘、先小结已完成部分、或把剩余任务拆到新会话）。
 - ⚠️ **是启发式估算，不是计费值**（容量按约 4 字节/token 折算）。适合做压缩/分片决策；要计费口径请用官方 `tokenUsage` 投影（四桶 `uncachedInputTokens` / `outputTokens` / `cacheReadTokens` / `cacheWriteTokens`）。
 - **三项之和通常小于已用量**（实测 390K vs 243K）：已用量取自 `projectedTokens`，底座是 **provider 报告的真实提示词规模**；三个分项是**逐条启发式累加**，不含 reasoning tokens、附件与部分注入内容。所以「分项加起来对不上总数」是口径差异，不是算错。
-- **设计取舍（为什么是自查工具而不是每轮注入数值）**：每轮注入会让系统提示词前缀每轮变化 ⇒ prompt cache 失效 ⇒ 成本上升，且注入文本本身占 token（为知道用量反而多花）；工具定义固定不变，只在调用时才产生输出。DSH 官方 compaction 本就是**自动**触发（`agent/pre-step` + `thresholdRatio`），AI 不参与决策 —— 本工具面向的是「AI 需要主动决策」的场景（要不要先总结再继续、要不要分片、要不要把大结果落盘）。
+- **每轮注入（默认开）与按需自查并行**：除了 `context_usage` 工具，插件还会**每轮**把实时用量注入上下文 —— 走 `agent/pre-step`，把用量作为**一条 user 消息追加到该步消息批次尾部**（**不是**系统提示词前缀）。放尾部的原因：前缀保持稳定 ⇒ prompt cache 仍命中，而 AI 每轮都能直接看到数字。注入按 **turn** 门控（`agent/pre-step` 每步都触发，每步注入会在一回合里刷出多条重复行）；注入文本是**单行紧凑格式**（`formatContextUsageCompact`），拿不到投影时静默跳过、绝不影响回合。配置项 `injectContextUsage`（`lib/core/config.js` 的 DEFAULTS，默认 `true`）可关；关掉即退化为「按需调用工具」。**历史口径修正**：早期结论是「只做自查工具、不注入」，理由是「每轮注入会让系统提示词前缀每轮变化 ⇒ prompt cache 失效」——该代价只存在于「注入到前缀」这一种做法；改为注入到消息尾部即规避。
+- **注入可见性**：注入走官方 logged 通道（`createUserMessage` + 返回 `{...decision, messages:[...]}`），因此**进模型输入、也落进会话日志** —— AI 确实看得见，不是只在内存里飘。
 - **失败语义**：拿不到数据时如实说明原因（`exec.agent` 缺失 / `sessionProjections` 服务不可用 / 该路由还没上报 `contextWindow`），不抛异常、不返回空。
 
 ## 十一、跨会话消息与指定模型新建会话（AI 工具 list_sessions / send_to_session / create_session）
