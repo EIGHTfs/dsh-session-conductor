@@ -188,10 +188,10 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 - **`create_session` 缺省工作目录 = 调用方会话自己的 cwd**（发起它的那个 AI 在哪干活，新会话就落在哪）。**不要**依赖本体默认：那是 DSH 安装目录（实测 `/volume1/@appstore/DeepSeekHarness-NAS`），新会话落在程序目录里对干活毫无意义。显式给 `cwd` 或 `workspaceId` 可覆盖（二者互斥）。
 - **dryRun（两个写操作工具都支持）**：只做校验与预览、**不产生任何副作用**。`create_session` 的 dryRun 还会**核对 provider/model 是否真在模型目录里**；`send_to_session` 的 dryRun 会**报告目标状态与限流余量**，且**不消耗限流配额**（可以先 dryRun 多次再真投）。dryRun 同样执行全部本地校验（自投/超长/跳数等照常被拒）。
 - **状态含义**（`list_sessions` 输出）：`running` = 正在跑回合；`idle` = 已挂载但空闲；`inactive` = 冷会话（未挂载，投递时会被唤醒）。缺 id 的脏条目会被跳过并如实标注（不会渲染成 `undefined`）。
-- **会话列表的内存边界（实测，别再踩）**：冷会话读日志走官方 `handle.read(0, undefined)`，**宿主 API 不能流式读** —— `read(offset, length)` 的 offset/length 只是**内存数组切片**，后端每次调用都会把整份日志读进来解压（`session-persistence-jsonl/src/storage.ts` 的 `readCurrent`）。实测单份日志 49.2 MB 压缩 → **173.3 MB 解压**（3.2~5.0×）。
-  - ⛔ **不要为了省内存改成分块读**：内存峰值不变（每次都全量物化），耗时变 O(n²)（曾导致 `/list` >120s 超时，已撤回）。
-  - ✅ 正确做法是**别重复解析**：靠列表磁盘缓存的 `revision` 命中跳过（1.2.0 修掉了「`list()` 返回快照却被当裸 header 用、`revision` 恒 null ⇒ 缓存永不生效」这个 bug）。
-  - 想把单会话内存压到 KB 级，只能绕过 handle：按 zstd 帧解码日志文件（多帧格式每帧可独立解压，`lib/zstd-frames.js` 已具备该能力）。
+- **会话列表的内存边界（实测，别再踩）**：宿主的 `handle.read(offset, length)` **不能流式读** —— offset/length 只是**内存数组切片**，后端每次调用都会把整份日志读进来解压（`session-persistence-jsonl/src/storage.ts` 的 `readCurrent`）。实测单份日志 49.2 MB 压缩 → **173.3 MB 解压**（3.2~5.0×）。
+  - ⛔ **不要为了省内存改成分块 read**：内存峰值不变（每次都全量物化），耗时变 O(n²)（曾导致 `/list` >120s 超时，已撤回）。
+  - ✅ **1.2.2 起的做法：绕开 handle，按 zstd 帧流式读日志文件** —— `lib/sessions/events.js` 的 `readColdSessionSummary()`：`findSessionLogById` 定位文件 → `streamDecodedFrames()`（`lib/zstd-frames.js`，逐帧解压、分片直接交给消费者不拼接）→ `StringDecoder` 增量切行 → 逐行 `JSON.parse`，只累加 `title`/`updatedAt`/`openTurn` 并保留有界尾部。**实测 heap 增量 24 MB、峰值 29 MB**（原路径数百 MB），且与「全量解码 + `lastEventTime`/`hasOpenTurn`/`interruptionInfo`」逐项对拍一致。
+  - 另靠列表磁盘缓存的 `revision` 命中跳过重复解析（1.2.0 修掉了「`list()` 返回快照却被当裸 header 用、`revision` 恒 null ⇒ 缓存永不生效」）。
 - **投递语义**：默认 `mode:"queue"` —— 目标空闲时**由本体自动唤醒**它跑一个回合；目标运行中则排到其下一回合边界。`mode:"steer"` 改为注入目标**正在跑**的那个回合。
 - **实现口径（重要）**：全部走本体官方 `sessionController` 的 `@Remote` 方法 —— `create` / `selectModel` / `prompt`。**不自己写会话日志**：inbox 家族只有 `agent/inbox/spliced` 落盘，其 fold 对非法 splice（id 重复、start 越界）**直接抛错**，自己写等于拿对方会话的完整性冒险。`prompt` 的受理流程会先 resume 目标会话，唤醒语义由本体保证；`requestId` 是幂等键（本体持久化在那条被接受的消息上），重试传同键不会重复投递。
 - **`create_session` 为什么是两步**：本体 `SessionCreateRequest` 只有 `workspaceId? / cwd? / sessionId? / agentPreset?`，**没有 model 字段**，所以必须 `create` → `selectModel`。任一步失败都如实回执（如「⚠️ 会话已建，但模型未设置」），**不谎报成功**。

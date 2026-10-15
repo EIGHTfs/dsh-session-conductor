@@ -1,95 +1,151 @@
-// 冷会话读取回归 —— 全量读的真实行为 + 「禁止改回分块读」的护栏。
+// 冷会话读取回归 —— 按 zstd 帧**流式**读（常量内存）的正确性 + 回退路径。
 //
-// 【背景·为什么不做分块读】曾尝试把 `handle.read(0, undefined)` 改成分块 `read(offset, chunk)`
-// 以「降低内存峰值」，实测证明是**错的优化**：宿主 `readCurrent` 每次调用都会
-// `readStoredLog(path)` 把整份日志读进来解压，offset/length 只是在内存数组上 `slice`
-// （见 packages/session/session-persistence-jsonl/src/storage.ts）。于是分块读
-//   · 内存峰值**不变**（每次仍物化全部事件）
-//   · 耗时变成 N 次全量解压 ⇒ O(n²)（api 门禁里 /list 直接 >120s 超时）
-// 结论：宿主 API 不能流式读；内存控制只能靠「别重复解析」＝列表磁盘缓存（revision 命中跳过）。
-// 本文件用假 handle 钉住「全量读」这一既定契约，并断言 list.js 走的就是它。
+// 【背景】宿主的 `handle.read()` 无法流式读：`readCurrent` 每次都会 `readStoredLog(path)`
+// 把整份日志解压成事件数组（`offset/length` 只是内存数组切片）。本机实测最大会话
+// 49.2 MB 压缩 → **173.3 MB 解压**（3.2~5.0×），列表遍历上百个冷会话 ⇒ 进程 OOM
+// （线上 RSS 2.33 GB、`/list` >120s）。
+// 因此列表改走「按 zstd 帧流式读」：直接读日志文件 → 逐帧流式解压（`streamDecodedFrames`）
+// → 逐行增量解析 → 只累加 title/updatedAt/openTurn 并保留有界尾部。
+//
+// 覆盖方式：用 `zstdCompress` 造**真实多帧**夹具（不 mock 解压），端到端验证派生字段
+// 与「全量解码 + lastEventTime/hasOpenTurn/interruptionInfo」等价。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { zstdCompress } from 'node:zlib';
 
-import { readColdSessionEvents } from '../../lib/sessions/events.js';
+import { streamDecodedFrames, decodeAllFrames, scanZstdFrames } from '../../lib/zstd-frames.js';
+import { readColdSessionSummary, findSessionLogById } from '../../lib/sessions/events.js';
+import { lastEventTime, hasOpenTurn } from '../../lib/sessions/turn.js';
+import { interruptionInfo } from '../../lib/sessions/interruption.js';
 
+const zstdCompressAsync = promisify(zstdCompress);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const EVENTS_SRC = readFileSync(join(ROOT, 'lib', 'sessions', 'events.js'), 'utf8');
 const LIST_SRC = readFileSync(join(ROOT, 'lib', 'sessions', 'list.js'), 'utf8');
 
-/** 假 handle：记录调用参数；read 返回给定事件（模拟「每次都全量」的后端）。 */
-function makeHandle(events, header = { id: 'sess-1' }) {
-  const calls = [];
-  return {
-    header,
-    calls,
-    async read(offset, length) { calls.push({ offset, length }); return { events }; },
-    async close() { calls.push({ close: true }); },
-  };
+/** 把若干段文本各自压成一个 zstd 帧 → 拼成多帧缓冲（模拟 DSH 会话日志容器）。 */
+async function makeMultiFrame(segments) {
+  const frames = [];
+  for (const seg of segments) frames.push(await zstdCompressAsync(Buffer.from(seg, 'utf8')));
+  return Buffer.concat(frames);
 }
-const makeCtx = (handle) => ({ get: (n) => (n === "sessionPersistence" ? { open: async () => handle } : undefined) });
-const makeEvents = (n) => Array.from({ length: n }, (_, i) => ({ seq: i, type: "step/start", time: 1000 + i }));
 
-test('全量读：一次 read(0, undefined) 拿回全部事件（宿主 API 的既定契约）', async () => {
-  const handle = makeHandle(makeEvents(300));
-  const result = await readColdSessionEvents(makeCtx(handle), 'sess-1');
-  assert.equal(result.events.length, 300, '必须返回全部事件（续跑扫描等调用方依赖它）');
-  const reads = handle.calls.filter((c) => !c.close);
-  assert.equal(reads.length, 1, '只应调用一次 read（分块读会变成 N 次全量解压）');
-  assert.equal(reads[0].offset, 0);
-  assert.equal(reads[0].length, undefined, '契约是 read(0, undefined) —— 传有限 length 也仍是全量解压，别被误导');
+/** 造一份会话日志文本：header 行 + 事件行（可指定是否停在开放回合）。 */
+function makeLogLines({ count = 40, title = '标题', openTurn = false } = {}) {
+  const lines = [JSON.stringify({ type: 'session', version: 4, id: 'sess-1', cwd: '/w/x', createdAt: 1000 })];
+  lines.push(JSON.stringify({ seq: 0, type: 'turn/start', time: 1000 }));
+  for (let i = 1; i <= count; i++) {
+    lines.push(JSON.stringify({ seq: i, type: 'step/start', time: 1000 + i }));
+    if (i === 5) lines.push(JSON.stringify({ seq: 100, type: 'session/title', data: { title }, time: 1005 }));
+  }
+  if (!openTurn) lines.push(JSON.stringify({ seq: count + 1, type: 'turn/end', data: { reason: null }, time: 1000 + count + 1 }));
+  return lines.join('\n') + '\n';
+}
+
+/** 在临时目录里放一份多帧会话日志，返回 sessions root。 */
+async function makeFixtureRoot(logText, { frames = 3, sessionId = 'sess-1' } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-logframes-'));
+  const dir = join(root, '--group--', sessionId);
+  mkdirSync(dir, { recursive: true });
+  const per = Math.max(1, Math.ceil(logText.length / frames));
+  const segments = [];
+  for (let i = 0; i < logText.length; i += per) segments.push(logText.slice(i, i + per));
+  writeFileSync(join(dir, 'session.v4.jsonl.zstd'), await makeMultiFrame(segments));
+  return { root, dir };
+}
+
+// ---------- ① streamDecodedFrames：流式消费与全量解码等价 ----------
+
+test('streamDecodedFrames：逐帧流式分片拼起来 == 原始文本（多帧不丢）', async () => {
+  const text = makeLogLines({ count: 200 });
+  const buf = await makeMultiFrame([text.slice(0, 1000), text.slice(1000, 3000), text.slice(3000)]);
+  const { frames } = scanZstdFrames(buf);
+  assert.equal(frames.length, 3, `夹具应为 3 帧，实际 ${frames.length}`);
+
+  const chunks = [];
+  const stats = await streamDecodedFrames(buf, (c) => chunks.push(c));
+  assert.equal(stats.frames, 3);
+  assert.equal(Buffer.concat(chunks).toString('utf8'), text, '流式消费结果必须与原文完全一致');
 });
 
-test('全量读：meta 取 handle.header，且读取后必须 close', async () => {
-  const handle = makeHandle(makeEvents(3), { id: 'abc', cwd: '/w' });
-  const result = await readColdSessionEvents(makeCtx(handle), 'abc');
-  assert.equal(result.meta?.id, 'abc');
-  assert.ok(handle.calls.some((c) => c.close), '必须 close（否则句柄泄漏）');
-});
-
-test('全量读：宿主无 open 能力 → 返回 null（不抛）', async () => {
-  assert.equal(await readColdSessionEvents({ get: () => ({}) }, 's'), null);
-  assert.equal(await readColdSessionEvents({ get: () => undefined }, 's'), null);
-});
-
-test('全量读：读取失败向上抛（列表据此带出 inspectError），且仍会 close', async () => {
-  const boom = {
-    header: { id: 's' },
-    async read() { throw new Error('损坏的日志'); },
-    async close() { this.closed = true; },
-  };
-  await assert.rejects(() => readColdSessionEvents(makeCtx(boom), 's'), /损坏的日志/);
-  assert.equal(boom.closed, true, '读失败也必须 close（finally 保证）');
-});
-
-test('宿主包缺失时（自测环境）补闭合器优雅降级，不影响事件返回', async () => {
-  const events = makeEvents(5);
-  const result = await readColdSessionEvents(makeCtx(makeHandle(events)), 'sess-1');
-  assert.ok(Array.isArray(result.events) && result.events.length >= events.length, '事件必须原样返回');
-});
-
-// ── 护栏：防止有人再改回「分块读」这个错误优化 ──────────────────────────
-
-test('护栏：events.js 不得出现分块读循环（offset += / 多次 read 推进）', () => {
-  // 允许注释里讨论，因此只看去掉注释行后的代码
-  const code = EVENTS_SRC.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
-  assert.ok(
-    /handle\.read\(0, undefined\)/.test(code),
-    '冷会话读法必须是单次 read(0, undefined)：分块读在宿主 API 下内存峰值不变、耗时变 O(n²)',
-  );
-  assert.ok(
-    !/for\s*\(\s*;;\s*\)/.test(code) && !/offset \+= chunk/.test(code),
-    '不得引入分块读循环（readCurrent 每次都会全量解压）',
+test('streamDecodedFrames：onChunk 抛错会向上传播（不静默吞掉）', async () => {
+  const buf = await makeMultiFrame(['{"a":1}\n', '{"b":2}\n']);
+  await assert.rejects(
+    () => streamDecodedFrames(buf, () => { throw new Error('消费者炸了'); }),
+    /消费者炸了/,
   );
 });
 
-test('护栏：list.js 必须用全量读函数（并说明内存靠缓存而非分块）', () => {
-  assert.match(LIST_SRC, /await readColdSessionEvents\(ctx, entry\.meta\.id\)/, 'list.js 必须调用 readColdSessionEvents');
-  assert.ok(
-    !/readColdSessionSummary/.test(LIST_SRC),
-    '不得再引用已删除的分块读函数（它只会让内存峰值不变、耗时变 O(n²)）',
-  );
+test('streamDecodedFrames：空缓冲不炸（0 帧）', async () => {
+  const stats = await streamDecodedFrames(Buffer.alloc(0), () => {});
+  assert.equal(stats.frames, 0);
+});
+
+// ---------- ② readColdSessionSummary：派生字段与「全量解码」等价 ----------
+
+test('按帧摘要读：title/updatedAt/openTurn/事件数 与全量解码朴素计算一致', async () => {
+  const logText = makeLogLines({ count: 120, title: '真实标题' });
+  const { root } = await makeFixtureRoot(logText, { frames: 4 });
+
+  const summary = await readColdSessionSummary({}, 'sess-1', { root });
+  assert.ok(summary, '应能定位并读取夹具日志');
+  assert.equal(summary.frames, 4, '应逐帧读满 4 帧');
+
+  // 朴素全量：整份解码后逐行算（等价性标尺）
+  const buf = readFileSync(join(root, '--group--', 'sess-1', 'session.v4.jsonl.zstd'));
+  const events = (await decodeAllFrames(buf)).split('\n').filter(Boolean)
+    .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+    .filter((e) => e && e.type !== 'session');
+
+  assert.equal(summary.derived.title, '真实标题');
+  assert.equal(summary.derived.updatedAt, lastEventTime(events), 'updatedAt 必须等于末条事件时间');
+  assert.equal(summary.derived.openTurn, hasOpenTurn(events));
+  assert.equal(summary.scanned, events.length, 'scanned 必须等于事件总数');
+  assert.equal(summary.meta?.cwd, '/w/x', 'meta 取首行会话 header（含 cwd）');
+  assert.deepEqual(interruptionInfo(summary.events), interruptionInfo(events), 'interruption 语义一致');
+});
+
+test('按帧摘要读：尾部有界（tailKeep 之外不驻留）', async () => {
+  const { root } = await makeFixtureRoot(makeLogLines({ count: 300 }), { frames: 2 });
+  const summary = await readColdSessionSummary({}, 'sess-1', { root, tailKeep: 50 });
+  assert.ok(summary.events.length <= 50, `尾部应被截到 50 条以内，实际 ${summary.events.length}`);
+  assert.ok(summary.scanned > 250, '仍然要扫完全部事件（保证 title/updatedAt 语义不变）');
+});
+
+test('按帧摘要读：日志停在开放回合 → openTurn 为 true', async () => {
+  const { root } = await makeFixtureRoot(makeLogLines({ count: 20, openTurn: true }));
+  const summary = await readColdSessionSummary({}, 'sess-1', { root });
+  assert.equal(summary.derived.openTurn, true);
+});
+
+test('按帧摘要读：文件不存在 → 返回 null（调用方回退 handle 读法）', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-logframes-empty-'));
+  assert.equal(await readColdSessionSummary({}, 'sess-not-here', { root }), null);
+});
+
+test('findSessionLogById：能按 id 在工作区分组下定位，找不到/空 id 返回 null', async () => {
+  const { root } = await makeFixtureRoot(makeLogLines({ count: 3 }));
+  assert.ok(findSessionLogById('sess-1', root)?.endsWith('session.v4.jsonl.zstd'));
+  assert.equal(findSessionLogById('sess-missing', root), null);
+  assert.equal(findSessionLogById('', root), null);
+});
+
+test('按帧摘要读：损坏行被跳过，不影响其余统计', async () => {
+  const lines = makeLogLines({ count: 10 }).split('\n').filter(Boolean);
+  lines.splice(3, 0, '{ 这不是 JSON');
+  const { root } = await makeFixtureRoot(lines.join('\n') + '\n', { frames: 2 });
+  const summary = await readColdSessionSummary({}, 'sess-1', { root });
+  assert.ok(summary.scanned >= 10, `损坏行应被跳过、其余照常统计，实际 ${summary.scanned}`);
+});
+
+// ---------- ③ 护栏：列表优先按帧读，且保留回退 ----------
+
+test('护栏：list.js 必须优先按帧摘要读，并保留 handle 全量读作为回退', () => {
+  assert.match(LIST_SRC, /await readColdSessionSummary\(ctx, entry\.meta\.id\)/, '列表必须优先走按帧摘要读');
+  assert.match(LIST_SRC, /await readColdSessionEvents\(ctx, entry\.meta\.id\)/, '必须保留 handle 读法作为回退');
+  assert.match(LIST_SRC, /if \(summary\) \{/, '必须先判断摘要读是否命中');
 });

@@ -20,7 +20,11 @@ test('GET /i18n：返回双语字典（zh 与 en 都在）', { skip }, async () 
 });
 
 test('GET /list：返回会话列表（ndjson 或 JSON 均可解析出内容）', { skip }, async () => {
-  const r = await api('GET', '/api/session-conductor/list');
+  // 该端点是**重活**：要遍历全部会话（含冷会话读日志），耗时取决于实例规模与当时负载
+  // （本机实测：164 会话 / 1.5 GB 日志时曾达分钟级；改成按 zstd 帧流式读后大幅下降，
+  //  但实例忙时仍可能慢）。因此单独放宽它的预算，避免把「实例正忙」误判成「接口坏了」——
+  // 本用例只验证「能返回内容」，不承担性能基准的职责。
+  const r = await api('GET', '/api/session-conductor/list', undefined, { timeoutMs: 240000 });
   assert.equal(r.status, 200, `应 200（实得 ${r.status}）`);
   assert.ok(String(r.text).length > 0, '响应不应为空');
 });
