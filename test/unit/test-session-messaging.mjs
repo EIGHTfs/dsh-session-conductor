@@ -191,7 +191,7 @@ test('create：指定模型 → create + selectModel 两步，参数正确', asy
   assert.deepEqual(sc.calls.map((c) => c.op), ['create', 'selectModel']);
   assert.deepEqual(sc.calls[0].req, { cwd: '/w' });
   assert.deepEqual(sc.calls[1].req, { sessionId: 'new-1', provider: 'wb', model: 'global:x' });
-  assert.match(out, /已新建会话 new-1（模型 wb\/global:x）/);
+  assert.match(out, /已新建会话 new-1（模型 wb\/global:x，工作目录 \/w）/);
 });
 
 test('create：带初始消息 → 第三步 prompt（queue）', async () => {
@@ -235,4 +235,111 @@ test('create：不指定模型时不调 selectModel', async () => {
   const out = await defs.get('create_session').execute({ cwd: '/w' });
   assert.deepEqual(sc.calls.map((c) => c.op), ['create']);
   assert.match(out, /未指定，跟随默认/);
+});
+
+// ── 缺省 cwd = 调用方会话的 cwd（2026-10-15 新增）──────────────────────────
+
+const SELF_WITH_CWD = { agent: { session: { id: 'self-1', header: { cwd: '/w/mine' } } } };
+
+test('create：不给 cwd → 缺省用调用方会话的 cwd（不是本体默认）', async () => {
+  const { sc, defs } = setup();
+  const out = await defs.get('create_session').execute({}, SELF_WITH_CWD);
+  assert.deepEqual(sc.calls[0].req, { cwd: '/w/mine' }, '应把调用方 cwd 传给本体');
+  assert.match(out, /工作目录 \/w\/mine/);
+});
+
+test('create：显式 cwd 优先于调用方 cwd', async () => {
+  const { sc, defs } = setup();
+  await defs.get('create_session').execute({ cwd: '/w/explicit' }, SELF_WITH_CWD);
+  assert.deepEqual(sc.calls[0].req, { cwd: '/w/explicit' });
+});
+
+test('create：给了 workspaceId 时不传 cwd（二者互斥）', async () => {
+  const { sc, defs } = setup();
+  await defs.get('create_session').execute({ workspaceId: 'ws-1' }, SELF_WITH_CWD);
+  assert.deepEqual(sc.calls[0].req, { workspaceId: 'ws-1' });
+});
+
+test('create：取不到调用方 cwd 时不硬塞（交给本体默认）', async () => {
+  const { sc, defs } = setup();
+  await defs.get('create_session').execute({}, { agent: { session: { id: 'self-1' } } });
+  assert.deepEqual(sc.calls[0].req, {});
+});
+
+// ── dryRun（2026-10-15 新增）──────────────────────────────────────────────
+
+test('create dryRun：不建会话，但报告 cwd / 模型 / 初始消息', async () => {
+  const { sc, defs } = setup();
+  const out = await defs.get('create_session').execute(
+    { provider: 'agnes', model: 'agnes-3.0-flash', text: '开始干活', dryRun: true }, SELF_WITH_CWD,
+  );
+  assert.match(out, /【dryRun】未创建任何会话/);
+  assert.match(out, /工作目录：\/w\/mine（缺省 = 调用方会话的 cwd）/);
+  assert.match(out, /模型：agnes\/agnes-3\.0-flash/);
+  assert.match(out, /初始消息：4 字符/);
+  assert.equal(sc.calls.length, 0, 'dryRun 不得调用本体 create/selectModel/prompt');
+});
+
+test('create dryRun：模型不在目录里 → 明确告警（仍不建会话）', async () => {
+  const sc = makeSc({
+    modelCatalog: async () => ({ groups: [{ id: 'agnes', models: [{ id: 'agnes-3.0-flash' }] }] }),
+  });
+  const { defs } = setup(sc);
+  const out = await defs.get('create_session').execute({ provider: 'agnes', model: '不存在的模型', dryRun: true });
+  assert.match(out, /⚠️ model「不存在的模型」不在 provider「agnes」下/);
+  assert.equal(sc.calls.length, 0);
+});
+
+test('create dryRun：模型在目录里 → 标核对通过', async () => {
+  const sc = makeSc({
+    modelCatalog: async () => ({ groups: [{ id: 'agnes', models: [{ id: 'agnes-3.0-flash' }] }] }),
+  });
+  const { defs } = setup(sc);
+  const out = await defs.get('create_session').execute({ provider: 'agnes', model: 'agnes-3.0-flash', dryRun: true });
+  assert.match(out, /✓ 已在模型目录里核对通过/);
+});
+
+test('send dryRun：不投递、不消耗限流配额，并报告目标与限流余量', async () => {
+  const { sc, defs } = setup();
+  const out = await defs.get('send_to_session').execute(
+    { sessionId: OTHER, text: 'hello', dryRun: true }, SELF,
+  );
+  assert.match(out, /【dryRun】未投递任何消息/);
+  assert.match(out, /限流：本窗口已用 0\/5/);
+  assert.equal(sc.calls.length, 0, 'dryRun 不得调用本体 prompt');
+  // 关键：dryRun 不能吃掉配额 —— 之后连投 5 条都应成功
+  for (let i = 0; i < 5; i++) {
+    assert.match(await defs.get('send_to_session').execute({ sessionId: OTHER, text: `m${i}` }, SELF), /已投递到/);
+  }
+});
+
+test('send dryRun：dryRun 也照样执行本地校验（自投/超长等仍被拒）', async () => {
+  const { defs } = setup();
+  assert.match(
+    await defs.get('send_to_session').execute({ sessionId: 'self-1', text: 'hi', dryRun: true }, SELF),
+    /不能投给自己/,
+  );
+  assert.match(
+    await defs.get('send_to_session').execute({ sessionId: OTHER, text: 'x'.repeat(8 * 1024 + 1), dryRun: true }, SELF),
+    /超长/,
+  );
+});
+
+// ── 会话列表脏数据防御（2026-10-15 新增）─────────────────────────────────
+
+test('formatSessionList：缺 id 的脏条目被跳过并如实标注', () => {
+  const text = formatSessionList([
+    { id: 'a-1', title: 'A', cwd: '/w/a', live: true, running: false },
+    { title: '(无标题)', cwd: null },            // 脏数据：没有 id
+    undefined,                                    // 脏数据：整个条目缺失
+    { id: 'b-2', title: 'B', cwd: '/w/b', live: false },
+  ], null);
+  assert.match(text, /共 2 个会话/);
+  assert.match(text, /另有 2 条缺 id 的脏数据已跳过/);
+  assert.ok(!/undefined/.test(text), '不得把 undefined 渲染进输出');
+  assert.ok(!text.includes('- undefined'), '不得出现无 id 的条目行');
+});
+
+test('formatSessionList：全是脏数据时给出明确说明', () => {
+  assert.match(formatSessionList([{ title: 'x' }], null), /没有可用会话（1 条缺 id 的脏数据已跳过）/);
 });

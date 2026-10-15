@@ -170,20 +170,29 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 
 ## 十一、跨会话消息与指定模型新建会话（AI 工具 list_sessions / send_to_session / create_session）
 
-三个工具都在 `lib/features/session-messaging/`，由 `apply.js` 在 `inject('tools')` 回调里注册（注册整体包 try/catch，失败只留痕、不连累同批工具）。
+三个工具都在 `lib/features/session-messaging/`（`logic.js` 常量/纯函数/本体调用封装 + `tools.js` 工具注册 + `index.js` 域出口），由 `apply.js` 在 `inject('tools')` 回调里注册（注册整体包 try/catch，失败只留痕、不连累同批工具）。
 
 | 工具 | 用途 | 关键参数 |
 |---|---|---|
 | `list_sessions` | 列出本机会话（id / 标题 / 工作区 / 状态 / 最后活动 / 是否当前会话） | 无 |
-| `send_to_session` | 给另一个会话投递消息（不经过人转达） | `sessionId`、`text`、`mode`(queue/steer)、`requestId`、`hops` |
-| `create_session` | 新建会话并可指定模型，可选带初始消息 | `provider`+`model`、`cwd`/`workspaceId`、`sessionId`、`text` |
+| `send_to_session` | 给另一个会话投递消息（不经过人转达） | `sessionId`、`text`、`mode`(queue/steer)、`requestId`、`hops`、`dryRun` |
+| `create_session` | 新建会话并可指定模型，可选带初始消息 | `provider`+`model`、`cwd`/`workspaceId`、`sessionId`、`text`、`dryRun` |
 
-- **状态含义**（`list_sessions` 输出）：`running` = 正在跑回合；`idle` = 已挂载但空闲；`inactive` = 冷会话（未挂载，投递时会被唤醒）。
+**标准用法（按此顺序）**
+
+1. `list_sessions()` → 拿目标会话 id（**不要凭标题或记忆猜 id**）
+2. 建新会话：`list_models()` 查确切 provider/model → `create_session({provider, model, dryRun:true})` 预览 → 确认后去掉 dryRun 真建
+3. 给已有会话发消息：`send_to_session({sessionId, text, dryRun:true})` 预览 → 确认后真投
+
+- **`create_session` 缺省工作目录 = 调用方会话自己的 cwd**（发起它的那个 AI 在哪干活，新会话就落在哪）。**不要**依赖本体默认：那是 DSH 安装目录（实测 `/volume1/@appstore/DeepSeekHarness-NAS`），新会话落在程序目录里对干活毫无意义。显式给 `cwd` 或 `workspaceId` 可覆盖（二者互斥）。
+- **dryRun（两个写操作工具都支持）**：只做校验与预览、**不产生任何副作用**。`create_session` 的 dryRun 还会**核对 provider/model 是否真在模型目录里**；`send_to_session` 的 dryRun 会**报告目标状态与限流余量**，且**不消耗限流配额**（可以先 dryRun 多次再真投）。dryRun 同样执行全部本地校验（自投/超长/跳数等照常被拒）。
+- **状态含义**（`list_sessions` 输出）：`running` = 正在跑回合；`idle` = 已挂载但空闲；`inactive` = 冷会话（未挂载，投递时会被唤醒）。缺 id 的脏条目会被跳过并如实标注（不会渲染成 `undefined`）。
 - **投递语义**：默认 `mode:"queue"` —— 目标空闲时**由本体自动唤醒**它跑一个回合；目标运行中则排到其下一回合边界。`mode:"steer"` 改为注入目标**正在跑**的那个回合。
 - **实现口径（重要）**：全部走本体官方 `sessionController` 的 `@Remote` 方法 —— `create` / `selectModel` / `prompt`。**不自己写会话日志**：inbox 家族只有 `agent/inbox/spliced` 落盘，其 fold 对非法 splice（id 重复、start 越界）**直接抛错**，自己写等于拿对方会话的完整性冒险。`prompt` 的受理流程会先 resume 目标会话，唤醒语义由本体保证；`requestId` 是幂等键（本体持久化在那条被接受的消息上），重试传同键不会重复投递。
 - **`create_session` 为什么是两步**：本体 `SessionCreateRequest` 只有 `workspaceId? / cwd? / sessionId? / agentPreset?`，**没有 model 字段**，所以必须 `create` → `selectModel`。任一步失败都如实回执（如「⚠️ 会话已建，但模型未设置」），**不谎报成功**。
 - **安全硬约束**（防唤醒风暴，缺一不可）：① 禁自投；② 协作链 `hops ≥ 3` 拒绝并提示改用共享文件；③ 同一对会话 60s 内最多 5 条；④ `requestId` 幂等 + 在途去重；⑤ 只投递、**不读对方会话内容**。
 - **何时不该用它**：需要交接上下文 / 长内容 / 可追溯 —— 落共享文件（如工作区下的交接 md）+ git 提交信息，消息里只放路径与要点；需要人做决策或跨机器 —— 人转达。
+- **部署提醒**：本插件在 profile 里是**双副本**（`node_modules/<插件>` 是宿主加载源、`local-plugins/<插件>` 是 hmr 观察点）。同步**新增文件/目录**时必须**两个 target 都打**，否则宿主加载源缺文件 → 插件整个加载失败。
 
 ## 十二、通用行为约定（浓缩自原全局 skill，约束所有 AI 所有会话）
 
