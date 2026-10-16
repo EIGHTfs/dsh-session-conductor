@@ -127,6 +127,8 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 ## 九、成员模型切换（AI 工具 list_models / set_member_model）
 
 - 用途：给 Team 里的队友/子代理**单独切模型**（只动该成员会话，不影响其他成员）。
+- **用户聊天框指令 `/model-switch`**（用户视角入口）：宿主把斜杠指令收在 `ctx.commands` 服务里，
+  注册形态照官方范例 `@deepseek-ai/dsh-command-goal` 抄 —— `ctx.commands.register({definitionId, name, description, input:{hint}, recordInput, handler})`；`definitionId` 必须用 `@deepseek-ai/dsh-commands/brand` 的 `CommandDefinitionId("…")` 包一层。handler 收 `invocation`：文本从 `invocation.rawInput`（命令后原文）取、发起会话从 `invocation.agent` 取，返回 `{kind:"success"|"error", text}` 由聊天框渲染。三条形态：**无参**列成员与各自模型（便宜来源：本插件 override + 名册记录值）、**一参**查该成员**实际**在用哪个模型（读 `request/header`）、**两参**切换并回显查证快照。实现 `lib/features/member-model/command.js`（经域出口导出、由 `apply.js` 注册）。⚠️ 两个宿主能力（`ctx.commands`、`.../brand`）一律**动态导入 + 守卫**：拿不到就跳过注册并如实留痕 —— 静态引用宿主包会在导入期炸掉整个插件（本项目在 defineTool / createUserMessage 上踩过同类坑）。
 - `list_models`：列出可用模型（provider → models[]）。**切模型前先用它拿确切 model id，不要凭记忆猜模型名。**
 - `set_member_model({target, provider, model})`：
   - `target` 传**成员名**、**sessionId** 或标题关键字。定位顺序：① `ctx.agentTeams.listMembers(caller)` 名册（覆盖 `spawn_teammate` 创建的队友——它们**不在** `ctx.agents.list()` 里）；② `ctx.agents.list()`（普通活跃 agent，sessionId 精确 / 标题子串）。名册里成员名与 sessionId 都支持精确匹配，成员名还支持唯一子串。
