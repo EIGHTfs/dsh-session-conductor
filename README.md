@@ -142,6 +142,63 @@ allowBuilds:
 - **快照模式（推荐，免重启）**：`bash tools/preview-snapshot.sh` → 生成 `assets/preview-*.html`（内嵌生成时真实后端响应），file:// 打开即可查看，无 CORS、无假数据
 - **DSH 同源路由**：重启后访问 `/api/session-conductor/preview/settings`（或 `/panel`），同源实时 fetch
 
+### 聊天框指令：`/model-switch`
+
+在**用户聊天框**里直接看/切成员（子代理）的模型，不必求 AI。指令由插件注册到宿主的
+`ctx.commands` 服务，**在插件加载时生效** —— 装好或更新后需重载一次实例，输入框里敲 `/model` 才有补全。
+
+**① 看有哪些成员、各自在用什么**
+
+```
+/model-switch
+```
+
+```
+成员模型（共 2 个）
+
+· model-test(session-aaaa-1111) — 最近请求=wb/cn:deepseek-v4-flash
+· writer(session-bbbb-2222) — 最近请求=n/deepseek-v4.1-flash
+
+要查**实际**在用什么（含历史请求，不只本次进程）或切换：
+  /model-switch <成员名或 sessionId>              ← 查实际模型
+  /model-switch <成员名或 sessionId> <provider>/<模型>  ← 切换并回显查证
+```
+
+「最近请求」取自**进程内真实请求记录**（瞬时、不扫日志）；显示「未知」说明本进程还没见它请求过，用 ② 查历史。若同时显示目标与最近请求且不一致，会附 `⚠️ 与目标不一致（下一回合生效前属正常）`。
+
+**② 查某个成员实际在用什么**
+
+```
+/model-switch writer
+```
+
+```
+成员 writer(session-bbbb-2222)
+
+实际请求使用：n/deepseek-v4.1-flash（2026/10/17 05:18:00）
+最近切换意图：n/deepseek-v4.1-flash
+
+切换：/model-switch writer <provider>/<模型>
+```
+
+判定只认**请求时真实使用**的模型（日志里 `request/header` 的 `data.header.config.{provider,model}`），不拿「切换意图」当结论 —— 实测出现过「提示是 agni、请求头仍是 wb」的不一致。日志尚无记录时会回退显示「本次进程内观察到的最近请求」，而不是武断地说没有。
+
+**③ 切换，并回显查证结果**
+
+```
+/model-switch writer n/deepseek-v4.1-flash
+```
+
+```
+已把成员 writer(session-bbbb-2222) 切到 n/deepseek-v4.1-flash
+生效方式：model/selection 事件（官方投影接管）…
+最近一次实际请求：wb/cn:deepseek-v4-flash（2026/10/17 05:18:00）
+判定：⏳ 待下一回合生效（最近一次请求是切换前发出的，属正常）
+确认结果会在该成员下次发起请求时注入回发起方（事件驱动，不阻塞）。
+```
+
+看到 **⏳ 不代表失败**：切换本就下一回合生效（当前那次请求早已发出）。该成员下次请求时插件按事件判定，并把 `【切换查证】✅ 已确认生效：…`（或 `❌ 未生效：期望 X，实际 Y` —— 不假装成功）注入回发起方。定位可用**成员名**或 **sessionId**（名字支持唯一子串，重名会要求写全）；模型必须写成 `provider/model`，写错会直接给正确格式。
+
 ## API
 
 插件以 `/api/session-conductor/*` 前缀注册宿主路由：

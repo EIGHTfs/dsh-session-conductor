@@ -145,6 +145,24 @@ pnpm add github:EIGHTfs/dsh-session-conductor#<commit>
 （有 prepare 的插件在 git 安装时会自动执行它 —— 例：dsh-git-push 的 prepare 构建不入库的
 `lib/client.js`，装完应确认产物在；本仓库无 prepare，装完即完整。）
 
+## 九、聊天框指令 `/model-switch`（用户视角）
+
+在聊天框里直接看/切成员（子代理）的模型，不必求 AI。**指令在插件加载时注册** —— 装好或更新后需重载一次实例，输入框里敲 `/model` 才有补全。
+
+| 输入 | 作用 | 输出要点 |
+|---|---|---|
+| `/model-switch` | 列成员与各自模型 | 每行给「最近请求=provider/model」（进程内真实请求记录，瞬时）；没有则退回「目标=…」或「未知」；两者不一致时附 `⚠️ 与目标不一致（下一回合生效前属正常）` |
+| `/model-switch <成员名或 sessionId>` | 查该成员**实际**在用哪个模型 | 优先读日志里的 `request/header`（请求级权威记录）+ 最近切换意图；日志尚无记录时回退显示「本次进程内观察到的最近请求」 |
+| `/model-switch <成员名或 sessionId> <provider>/<模型>` | 切换并回显查证 | 与 AI 工具同一套：生效方式 + 最近一次实际请求 + 判定（`✅ 已是新模型` / `⏳ 待下一回合生效`） |
+
+**三个别踩的坑**
+
+- **看到 ⏳ 不是失败**：切换本就下一回合生效（当前那次请求早已发出）。该成员下次请求时插件按 `agent/request` 事件判定，并把 `【切换查证】✅ 已确认生效：…` 或 `❌ 未生效：期望 X，实际 Y`（**不假装成功**）注入回发起方。
+- **别拿「意图」当结论**：判定只认请求时**真实使用**的 `data.header.config.{provider,model}`；`model/selection` 事件与会话里那句 `[model changed: …]` 提示都可能与实际不符 —— 实测出现过「提示是 agni、请求头仍是 wb」。
+- **模型必须写 `provider/model`**：写错会直接给出正确格式；成员用名字（支持唯一子串）或 `sessionId` 定位，重名会要求写全。
+
+实现见 `lib/features/member-model/command.js`；注册 API（`ctx.commands.register`）与守卫约定见「功能说明书」第九节。
+
 ## 相关
 
 - dsh-session-conductor-functions（功能说明书，每个功能参数/返回/注意事项）
