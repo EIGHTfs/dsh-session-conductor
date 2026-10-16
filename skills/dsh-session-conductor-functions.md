@@ -176,7 +176,7 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 
 | 工具 | 用途 | 关键参数 |
 |---|---|---|
-| `list_sessions` | 列出本机会话（id / 标题 / 工作区 / 状态 / 最后活动 / 是否当前会话）；支持 `query` 子串过滤 + `limit`/`offset` 分页（**默认只给 20 条**，回执会给出下一页的 offset） | `query` / `limit` / `offset` |
+| `list_sessions` | 列出本机会话（id / 标题 / 工作区 / 状态 / 最后活动 / 是否当前会话）；支持 `query` 子串过滤 + `limit`/`offset` 分页（**默认只给 20 条**，回执会给出下一页的 offset）。**冷缓存慢路径不阻塞**：全量构建本机实测 **226 秒**（201 份日志 / 1.5 GB），故「**先等 3 秒，超时转宿主后台 job 并复用同一份在途 Promise**（不重启构建）」⇒ 前台立刻拿 `jobId`，用宿主 `job_output` 取结果；热缓存 ~47 ms 仍直接返回。`fromIndex=true` 直读落盘索引秒回精简列表（id/标题/工作区，**不含 live 状态**）。宿主 job 契约（照 `dsh-git-push` 实测）：**owner 必须是有活 agent 的会话 id 字符串**（`exec.agent.id`）；带 owner 注册失败 ⇒ 退无主注册再试，两步都失败才同步降级并**把原因带回**（不静默） | `query` / `limit` / `offset` / `fromIndex` |
 | `send_to_session` | 给另一个会话投递消息（不经过人转达） | `sessionId`、`text`、`mode`(queue/steer)、`requestId`、`hops`、`dryRun` |
 | `create_session` | 新建会话并可指定模型，可选带初始消息 | `provider`+`model`、`cwd`/`workspaceId`、`sessionId`、`text`、`dryRun` |
 
