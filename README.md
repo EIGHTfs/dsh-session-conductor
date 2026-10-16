@@ -148,7 +148,7 @@ allowBuilds:
 
 | 端点 | 方法 | 用途 |
 |---|---|---|
-| `/list` | GET | 会话列表（标题/目录/时间/状态，落盘缓存按 revision 增量）。加 `?job=1` 或请求头 `Accept: application/x-job` 改为注册宿主后台 job 并即刻返回 jobId（构建慢时不阻塞请求；宿主无 jobs 服务时返回 501，请求方回落到默认分支） |
+| `/list` | GET | 会话列表（标题/目录/时间/状态，落盘缓存按 revision 增量）。**`?fromIndex=true`**：与工具 `list_sessions` 的 `fromIndex` 同义 —— 直接读落盘索引、**不做全量构建**，秒回精简列表（`{ok, fromIndex, sessions, hint}`，不含 live 状态与归档态）。加 `?job=1` 或请求头 `Accept: application/x-job` 改为注册宿主后台 job 并即刻返回 jobId（构建慢时不阻塞请求）；**HTTP 入口没有执行主体**，宿主 job 控制器可能拒绝无主注册（实测回 `no job controller serves this agent`）—— 此时**不再直接 501**，而是回退为落盘索引快照（`async:false` + `fromIndex:true` + `jobUnavailable` 原因），索引也没有才如实 501 |
 | `/archive` / `/restore` | POST | 归档 / 恢复会话 |
 | `/delete` | POST | 删除会话（拒绝运行中） |
 | `/undo` | POST | 撤回最后一条消息 |
