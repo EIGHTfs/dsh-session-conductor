@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          # 版本表护栏要读 `git log` 的全部提交主题；默认浅克隆只有 1 个提交会误判
+          fetch-depth: 0
 
       - name: 安装 Node ${{ matrix.node }}
         uses: actions/setup-node@v4

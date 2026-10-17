@@ -13,7 +13,21 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-test('docs/VERSIONS.md 覆盖全部带版本号的提交（不许掉版本）', () => {
+test('docs/VERSIONS.md 覆盖全部带版本号的提交（不许掉版本）', (t) => {
+  // 浅克隆（CI 默认 fetch-depth=1）只有 1 个提交，读不到历史版本 → 这条护栏失去意义，
+  // 此时明确跳过而不是报失败（CI 里已用 fetch-depth: 0 拉全量，正常会真正执行）。
+  try {
+    const shallow = execFileSync('git', ['-C', ROOT, 'rev-parse', '--is-shallow-repository'], { encoding: 'utf8' }).trim();
+    if (shallow === 'true') {
+      t.skip('浅克隆仓库，无法读取历史提交主题');
+      return;
+    }
+  } catch {
+    // 不是 git 仓库（比如打包产物里）：同样跳过
+    t.skip('不在 git 仓库内，无法读取提交历史');
+    return;
+  }
+
   // 提交主题形如 `feat(1.0.5): ...` / `refactor(1.0.4): ...` / `1.0.1 ...`
   const log = execFileSync('git', ['-C', ROOT, 'log', '--format=%s'], { encoding: 'utf8', timeout: 60000 });
   const versions = [...new Set(
