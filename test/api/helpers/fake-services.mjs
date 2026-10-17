@@ -1,9 +1,10 @@
 // mini-host 假服务注入（测试资产）——用**假数据**驱动 dsh-session-conductor 的真 handler，
 // 让 API 测试不再依赖运行中的真宿主（真宿主既慢又与现场数据耦合）。
 //
-// 用法：
+// 用法（minihost 已收编进独立插件 dsh-useful-tools，本仓库不再自带副本）：
 //   DSH_MINIHOST_SERVICES=<本文件绝对路径> \
-//   node <skill>/dsh-plugin-minihost.mjs --plugin <插件根> --port <端口>
+//   node <dsh-useful-tools>/assets/dsh-plugin-minihost.mjs --plugin <插件根> --port <端口>
+//   或直接用该插件的 `minihost` 工具：action=start / call / stop / list
 // 说明：mini-host 的 ctx 垫片默认只提供 webServer/tools/systemPrompt/commands/settings；
 //   需要宿主服务的插件会走「服务缺失」降级分支或直接 500。本文件把缺失的服务补上假实现。
 //

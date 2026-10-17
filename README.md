@@ -137,10 +137,10 @@ allowBuilds:
 
 ### 真实后端预览页
 
-改 UI 后免重启查看效果：
+改 UI 后免重启查看效果 —— **预览能力已移出本插件**，统一用独立插件 `dsh-useful-tools` 的 `preview` 工具：
 
-- **快照模式（推荐，免重启）**：`bash tools/preview-snapshot.sh` → 生成 `assets/preview-*.html`（内嵌生成时真实后端响应），file:// 打开即可查看，无 CORS、无假数据
-- **DSH 同源路由**：重启后访问 `/api/session-conductor/preview/settings`（或 `/panel`），同源实时 fetch
+- **实时反代（推荐）**：`preview` → `action=gen`（生成预览页）→ `action=serve` 并给 `backend`（真实后端地址）⇒ `/api/*` 反代到真实后端，页面直接打真数据；`action=stop` 停、`action=list` 看
+- 原先本插件的 `tools/preview-snapshot.sh`（自包含快照）、`tools/vendor/frontend-real-render-preview.mjs`、`tools/screenshot-preview.mjs` 与 `/api/session-conductor/preview/<name>` 同源路由**已移除**；如需「冻结一份可分享的静态页」或「自动截图出 README 配图」，向 `dsh-useful-tools` 提需求
 
 ### 聊天框指令：`/model-switch`
 
