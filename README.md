@@ -137,10 +137,24 @@ allowBuilds:
 
 ### 真实后端预览页
 
-改 UI 后免重启查看效果 —— **预览能力已移出本插件**，统一用独立插件 `dsh-useful-tools` 的 `preview` 工具：
+改 UI 后免重启查看效果 —— **预览能力已移出本插件**，统一用独立插件 `dsh-useful-tools` 的 `preview` / `minihost` 工具。
 
-- **实时反代（推荐）**：`preview` → `action=gen`（生成预览页）→ `action=serve` 并给 `backend`（真实后端地址）⇒ `/api/*` 反代到真实后端，页面直接打真数据；`action=stop` 停、`action=list` 看
-- 原先本插件的 `tools/preview-snapshot.sh`（自包含快照）、`tools/vendor/frontend-real-render-preview.mjs`、`tools/screenshot-preview.mjs` 与 `/api/session-conductor/preview/<name>` 同源路由**已移除**；如需「冻结一份可分享的静态页」或「自动截图出 README 配图」，向 `dsh-useful-tools` 提需求
+**最短三行（实测可用；本仓库没有 `assets/preview.spec.mjs` 也能出页面）**：
+
+```
+minihost { action: "start", plugin: "<插件根>", port: 31177 }   # ① 后端模拟
+preview  { action: "gen",   plugin: "<插件根>" }                 # ② 前端预览页（无 spec 自动用默认垫片）
+preview  { action: "serve", file: "<插件根>/assets/preview.html", backend: "http://127.0.0.1:31177" }  # ③ 前端接后端
+```
+
+**几个容易写错的点**：
+
+- `gen` 默认产物是 `<插件根>/assets/preview.html`（会写进仓库）⇒ 不想入库就传 `out`（如 `out: "/tmp/sc-preview.html"`），并让 `serve` 的 `file` 指向同一路径。本仓库已把该产物加进 `.gitignore`。
+- `serve` 默认端口 **31188**，显式传 `port` 才用你给的。
+- `backend` 可指向 minihost 的端口（`/api/*` 反代到模拟后端），也可指向**真实 DSH 后端**。
+- 显式传 `spec` 但文件不存在会**直接报错**（不静默降级）—— 故意的，避免指错文件还生成一个看不懂的页面。
+- 停止：`minihost { action: "stop", port: 31177 }` + `preview { action: "stop", port: 31200 }`；状态：两者都用 `action: "status"`。
+- **截图**（README 配图）改走 **browser 插件的 `browser_screenshot`**；「自包含快照」形态不做（理由见 `dsh-useful-tools` 的 `docs/NOT-DONE.md`）。
 
 ### 聊天框指令：`/model-switch`
 
@@ -221,7 +235,6 @@ allowBuilds:
 | `/templates/dir` | GET | 目录浏览 |
 | `/auto-rename-model` | GET | 自动重命名模型（透传官方 modelCatalog） |
 | `/i18n` | GET | 语言包（zh/en 外置 JSON） |
-| `/preview/settings` `/preview/panel` | GET | 真实后端预览页（同源服务） |
 
 示例：
 

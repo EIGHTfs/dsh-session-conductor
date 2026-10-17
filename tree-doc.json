@@ -179,39 +179,14 @@
   "test/unit/test-versions-table-complete.mjs": "（待注释）",
   "_meta": {
     "worktree": {
+      ".gitignore": {
+        "status": "M",
+        "mtime": "2026-10-17T08:48:21.214Z",
+        "note": "注释可能需更新"
+      },
       "README.md": {
         "status": "M",
-        "mtime": "2026-10-17T08:31:27.017Z",
-        "note": "注释可能需更新"
-      },
-      "assets/preview-panel.html": {
-        "status": "D",
-        "mtime": "",
-        "note": "注释可能需更新"
-      },
-      "assets/preview-settings.html": {
-        "status": "D",
-        "mtime": "",
-        "note": "注释可能需更新"
-      },
-      "lib/apply.js": {
-        "status": "M",
-        "mtime": "2026-10-17T08:31:26.997Z",
-        "note": "注释可能需更新"
-      },
-      "tools/preview-snapshot.sh": {
-        "status": "D",
-        "mtime": "",
-        "note": "注释可能需更新"
-      },
-      "tools/screenshot-preview.mjs": {
-        "status": "D",
-        "mtime": "",
-        "note": "注释可能需更新"
-      },
-      "tools/vendor/frontend-real-render-preview.mjs": {
-        "status": "D",
-        "mtime": "",
+        "mtime": "2026-10-17T08:48:21.239Z",
         "note": "注释可能需更新"
       }
     }
