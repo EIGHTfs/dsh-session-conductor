@@ -18,6 +18,7 @@
     "list.activeEmpty": "当前没有活跃会话（live/running）",
     "list.loading": "读取中…",
     "list.error": "读取会话列表失败：{message}",
+    "list.autoRetry": "（{n} 秒后自动重试）",
     "group.ungrouped": "未分组",
     "badge.archived": "已归档",
     "badge.running": "运行中",

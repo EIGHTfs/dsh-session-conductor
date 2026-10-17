@@ -18,6 +18,7 @@
     "list.activeEmpty": "No active sessions (live/running)",
     "list.loading": "Loading…",
     "list.error": "Failed to load sessions: {message}",
+    "list.autoRetry": " (retrying automatically in {n}s)",
     "group.ungrouped": "Ungrouped",
     "badge.archived": "Archived",
     "badge.running": "Running",
