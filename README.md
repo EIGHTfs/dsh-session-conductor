@@ -137,22 +137,27 @@ allowBuilds:
 
 ### 真实后端预览页
 
-改 UI 后免重启查看效果 —— **预览能力已移出本插件**，统一用独立插件 `dsh-useful-tools` 的 `preview` / `minihost` 工具。
+改 UI 后免重启查看效果 —— **预览能力已移出本插件**，统一用独立插件 `dsh-useful-tools`（**0.1.11**）的 `preview` / `minihost` 工具。
 
-**最短三行（实测可用；本仓库没有 `assets/preview.spec.mjs` 也能出页面）**：
+**最短三行（实测可用；本仓库没有 `assets/preview.spec.mjs` 也能出真实界面）**：
 
 ```
-minihost { action: "start", plugin: "<插件根>", port: 31177 }   # ① 后端模拟
-preview  { action: "gen",   plugin: "<插件根>" }                 # ② 前端预览页（无 spec 自动用默认垫片）
-preview  { action: "serve", file: "<插件根>/assets/preview.html", backend: "http://127.0.0.1:31177" }  # ③ 前端接后端
+minihost { action: "start", plugin: "<插件根>", port: 31177, services: "<插件根>/test/api/helpers/fake-services.mjs" }
+preview  { action: "gen",   plugin: "<插件根>" }
+preview  { action: "serve", file: "<插件根>/assets/preview.html", backend: "http://127.0.0.1:31177" }
 ```
 
-**几个容易写错的点**：
+停止：`minihost { action:"stop", port:31177 }` + `preview { action:"stop", port:31188 }`；状态：两者都用 `action:"status"`。
 
+**要点**：
+
+- **`services` 必须传**（0.1.11 新增）：本插件 `apply()` 依赖 `storageDomain` 等宿主服务，不注入时 `/templates` 会 500、页面显示「storageDomain 不可用」；注入 `test/api/helpers/fake-services.mjs` 后 `/templates` 返回 200 真实数据（已实测）。
+- **autoMount**（0.1.7 起）：无 spec 时 mock 宿主 `__ModuleLoader__` / `require` / `ctx`（slots / locale / effect），调插件 `apply(ctx)`，把 `slots.register(def, component)` 捕获到的组件 `createRoot().render()` 到 `#root`。**限制**：组件若依赖 `useSettings` / `useSession` 这类宿主 hooks 会渲染失败（页面会显示错误与已捕获插槽清单，不白屏）；要 100% 还原仍需 spec 提供 mock。locale 取插件自己 `ctx.locale.register` 的字典，键名不一致会回退成 key。
 - `gen` 默认产物是 `<插件根>/assets/preview.html`（会写进仓库）⇒ 不想入库就传 `out`（如 `out: "/tmp/sc-preview.html"`），并让 `serve` 的 `file` 指向同一路径。本仓库已把该产物加进 `.gitignore`。
-- `serve` 默认端口 **31188**，显式传 `port` 才用你给的。
-- `backend` 可指向 minihost 的端口（`/api/*` 反代到模拟后端），也可指向**真实 DSH 后端**。
+- `serve` 默认端口 **31188**，显式传 `port` 才用你给的；`backend` 可指向 minihost 的端口（`/api/*` 反代到模拟后端），也可指向**真实 DSH 后端**。
 - 显式传 `spec` 但文件不存在会**直接报错**（不静默降级）—— 故意的，避免指错文件还生成一个看不懂的页面。
+- **截图**（README 配图）走 **browser 插件的 `browser_screenshot`**；「自包含快照」形态不做（理由见 `dsh-useful-tools` 的 `docs/NOT-DONE.md`）。
+- **隔离实例自测**（0.1.8/0.1.9）：`test_env { action:"create"|"start"|"stop"|"status", plugin, pluginName }` 起独立 `DSH_HOME` + 自动端口的实例；`sync_plugin { write:true, register:true, dshHome:"<测试环境 DSH_HOME>" }` 把插件装进去（写 profile 的 `dependencies` + `dsh.profile.bundles`，并对齐 `node_modules` 副本）。
 - 停止：`minihost { action: "stop", port: 31177 }` + `preview { action: "stop", port: 31200 }`；状态：两者都用 `action: "status"`。
 - **截图**（README 配图）改走 **browser 插件的 `browser_screenshot`**；「自包含快照」形态不做（理由见 `dsh-useful-tools` 的 `docs/NOT-DONE.md`）。
 
