@@ -1,0 +1,70 @@
+name: CI
+
+# 触发：推到 master / 任何 PR。插件无运行时依赖，所以不需要 npm install。
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: 语法 + 构建 + 单元测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.x']
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: 环境信息
+        run: |
+          node -v
+          npm -v
+          echo "仓库无运行时依赖，跳过 npm install"
+
+      # 服务端入口做语法检查：有些文件不会被单测覆盖，语法错必须在这里挡住
+      - name: 服务端语法检查
+        run: |
+          set -e
+          node --check lib/index.js
+          node --check lib/apply.js
+          # 其余 lib 下的 .js 全量过一遍。
+          # 排除两类：client.js 是构建产物（下一步单独校验）；client-parts/* 是分片片段，
+          # 只有拼起来才是一个完整模块，单独检查没有意义。
+          find lib -name '*.js' -not -name 'client.js' -not -path 'lib/client-parts/*' -print0 \
+            | xargs -0 -n1 node --check
+          echo "语法检查通过"
+
+      # 前端产物是分片构建出来的、且不入库，所以必须在 CI 里现场构建并校验
+      - name: 构建前端产物
+        run: |
+          set -e
+          node build.cjs
+          node --check lib/client.js
+          echo "client.js 构建 + 语法检查通过"
+
+      # 只跑 unit：--api 需要运行中的宿主实例，CI 里没有，跑了也会被跳过
+      - name: 单元测试
+        run: node test/run-all.mjs --unit
+
+      - name: 失败时保留日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs-node${{ matrix.node }}
+          path: |
+            lib/client.js
+          retention-days: 3
