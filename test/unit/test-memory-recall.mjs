@@ -147,6 +147,27 @@ test('formatRecallBlock：无有效轮次 ⇒ 空串', () => {
   assert.equal(formatRecallBlock([{ userText: '' }], {}), '');
 });
 
+// ── 回归：要 30 轮却只回 5 轮（总额被套了自动注入那条 4000 字符紧上限）──────────
+test('formatRecallBlock：总额按请求规模算时，30 轮一轮不少（含最早的）', () => {
+  // 每轮约 500 字符 ⇒ 30 轮 ≈ 15KB。旧实现 maxTotalChars 固定 4000 ⇒ 只剩最后 ~5 轮。
+  const turns = Array.from({ length: 30 }, (_, i) => ({
+    time: 1000 + i,
+    userText: `第${i + 1}轮原话`.padEnd(300, '甲'),
+    agentText: '乙'.repeat(200),
+  }));
+  const text = formatRecallBlock(turns, { manual: true, maxTotalChars: 30 * 800 });
+  assert.match(text, /按请求取回最近 30 轮/);
+  assert.ok(text.includes('第1轮原话'), '最早的轮次必须在（这正是被截掉的那批）');
+  assert.ok(text.includes('第30轮原话'), '最新的轮次也要在');
+  assert.doesNotMatch(text, /受总长上限/, '没被截断时不该出现截断提示');
+});
+
+test('formatRecallBlock：真被截断时如实说明丢了几轮（不再静默）', () => {
+  const turns = Array.from({ length: 10 }, (_, i) => ({ time: i, userText: `第${i + 1}轮`.padEnd(400, '甲'), agentText: '' }));
+  const text = formatRecallBlock(turns, { manual: true, maxTotalChars: 1200 });
+  assert.match(text, /受总长上限 \d+ 字符限制，最早的 \d+ 轮未包含/);
+});
+
 // ---------- ④ 主入口 ----------
 
 test('buildMemoryRecall：用量下降触发取回；无下降则不触发', async () => {
