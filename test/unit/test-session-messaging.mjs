@@ -136,7 +136,11 @@ test('send：默认 queue → 调本体 prompt，参数与 signal 都齐', async
   assert.equal(call.hasSignal, true, 'signal 必传（本体内部会 throwIfAborted）');
   assert.equal(call.req.sessionId, OTHER);
   assert.equal(call.req.mode, 'queue');
-  assert.deepEqual(call.req.content, [{ type: 'text', text: 'hello' }]);
+  // 正文头部会自动带一行「【来自会话 <发送方 id>】」——接收方据此知道这条是谁发的
+  // （此前裸投递，实测出现过「A 发的消息被 B 当成当前这一方发的」）。这里把该契约钉住。
+  assert.equal(call.req.content.length, 1);
+  assert.equal(call.req.content[0].type, 'text');
+  assert.match(call.req.content[0].text, /^【来自会话 [\w-]+】\nhello$/);
   assert.match(call.req.requestId, /^sc-/);
 });
 
