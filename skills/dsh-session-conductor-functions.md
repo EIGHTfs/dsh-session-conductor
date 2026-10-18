@@ -188,7 +188,7 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 2. 建新会话：`list_models()` 查确切 provider/model → `create_session({provider, model, dryRun:true})` 预览 → 确认后去掉 dryRun 真建
 3. 给已有会话发消息：`send_to_session({sessionId, text, dryRun:true})` 预览 → 确认后真投
 
-- **`create_session` 缺省工作目录 = 调用方会话自己的 cwd**（发起它的那个 AI 在哪干活，新会话就落在哪）。**不要**依赖本体默认：那是 DSH 安装目录（实测 `/volume1/@appstore/DeepSeekHarness-NAS`），新会话落在程序目录里对干活毫无意义。显式给 `cwd` 或 `workspaceId` 可覆盖（二者互斥）。
+- **`create_session` 缺省工作目录 = 调用方会话自己的 cwd**（发起它的那个 AI 在哪干活，新会话就落在哪）。**不要**依赖本体默认：那是 DSH 安装目录（实测 `<DSH 安装目录>`），新会话落在程序目录里对干活毫无意义。显式给 `cwd` 或 `workspaceId` 可覆盖（二者互斥）。
 - **dryRun（两个写操作工具都支持）**：只做校验与预览、**不产生任何副作用**。`create_session` 的 dryRun 还会**核对 provider/model 是否真在模型目录里**；`send_to_session` 的 dryRun 会**报告目标状态与限流余量**，且**不消耗限流配额**（可以先 dryRun 多次再真投）。dryRun 同样执行全部本地校验（自投/超长/跳数等照常被拒）。
 - **状态含义**（`list_sessions` 输出）：`running` = 正在跑回合；`idle` = 已挂载但空闲；`inactive` = 冷会话（未挂载，投递时会被唤醒）。缺 id 的脏条目会被跳过并如实标注（不会渲染成 `undefined`）。
 - **会话列表的内存边界（实测，别再踩）**：宿主的 `handle.read(offset, length)` **不能流式读** —— offset/length 只是**内存数组切片**，后端每次调用都会把整份日志读进来解压（`session-persistence-jsonl/src/storage.ts` 的 `readCurrent`）。实测单份日志 49.2 MB 压缩 → **173.3 MB 解压**（3.2~5.0×）。

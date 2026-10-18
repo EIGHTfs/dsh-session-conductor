@@ -128,7 +128,7 @@ pnpm add github:EIGHTfs/dsh-session-conductor#<commit>
 1. **本机要有 `npm`** —— pnpm 构建 git 来源的包时会在临时目录执行 `npm install`；
    缺 npm 时报 `ERR_PNPM_PREPARE_PACKAGE` + `spawn ENOENT: npm: command not found`。
    （本机 2026-10-12 已装 npm 10.9.2：解包到 `<APP>/lib/node_modules/npm`，再链到
-   `/var/packages/DeepSeekHarness-NAS/target/.local/bin/npm` —— `/usr/local/bin` 不可写。）
+   `<DSH 安装目录>/bin/npm` —— 系统级 bin 目录不可写。）
 2. **pnpm 11 默认禁止 git 源依赖执行构建脚本**（供应链策略）：只有带 `prepare`/`prepack` 的插件
    需要放行，在 profile 的 `pnpm-workspace.yaml` 里加，否则报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`：
 

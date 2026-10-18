@@ -32,7 +32,7 @@ test('GET /group/list：workspaces 数组，每项含 workspaceId 与 path', { s
 });
 
 test('POST /group/new-session：非法 workspaceId 必须是 404（不得 500，也不得误建）', { skip }, async () => {
-  // 注意：**不要用空 body 测**——空 body 是合法路径（缺省用上次会话工作区），会真的建会话（有副作用）。
+  // 注意：**不要用空 body 测**——空 body 是合法路径（缺省用上一次使用的工作区），会真的建会话（有副作用）。
   // 这里用必然不存在的 workspaceId：应在「分组不存在」处 404 返回，且不产生任何创建行为。
   const r = await api('POST', '/api/session-conductor/group/new-session', { workspaceId: '__no_such_ws__' });
   assert.notEqual(r.status, 500, `非法 workspaceId 不该 500（实得 ${r.status}：${String(r.text).slice(0, 160)}）`);
