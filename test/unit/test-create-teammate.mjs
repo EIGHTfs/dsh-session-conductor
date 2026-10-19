@@ -1,7 +1,8 @@
 // create_teammate_with_model —— 包装工具的单测（fake 团队服务 + 真实临时 DSH_HOME）。
 //
-// 覆盖：参数校验 / 无 spawnTeammate / 无调用方 agent / 正常路径（创建后立刻写 model/selection）。
-// 说明：这里不碰真实 Team，只验证包装逻辑与「创建后立即设模型」这一步的接线。
+// 覆盖：参数校验 / 服务能力缺失 / 无调用方 / 正常四步流程（占位创建 → 中断 → 设模型 → 投递真实任务）
+//       / 设模型失败时不投递（避免真实任务用默认模型跑掉）。
+// 说明：不碰真实 Team，只验证接线与顺序。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -26,91 +27,141 @@ async function makeMemberSession(sessionId) {
   return dir;
 }
 
-/** 造 fake ctx：agentTeams.spawnTeammate 记录入参并返回成员视图。 */
-function makeCtx({ spawnTeammate } = {}) {
+/**
+ * 造 fake ctx：三个团队能力都记录调用，用共享 order 数组证明顺序。
+ */
+function makeCtx({ memberId = '', sessionId = '', withSend = true } = {}) {
+  const order = [];
+  const calls = { spawn: [], interrupt: [], send: [] };
+  const teams = {
+    async spawnTeammate(caller, request) {
+      order.push('spawn');
+      calls.spawn.push({ caller, request });
+      return { member: { id: sessionId || memberId, name: request.name, provider: request.provider, model: 'default-model' } };
+    },
+    interrupt(caller, target) {
+      order.push('interrupt');
+      calls.interrupt.push({ caller, target });
+      return { previousStatus: 'running' };
+    },
+  };
+  if (withSend) {
+    teams.sendMessage = async (caller, request) => {
+      order.push('send');
+      calls.send.push({ caller, request });
+      return { messageId: 'msg-1' };
+    };
+  }
   return {
-    logger,
-    get: (name) => (name === 'agentTeams' ? { spawnTeammate } : null),
+    ctx: { logger, get: (name) => (name === 'agentTeams' ? teams : null) },
+    order,
+    calls,
   };
 }
 
 const baseArgs = {
   name: 'test-member',
   description: '测试成员',
-  prompt: '只回复 OK 即可',
+  prompt: '把 /tmp/a.txt 的内容读出来并汇报',
   provider: 'agnes',
   model: 'agnes-3.0-flash',
 };
 
 test('缺参数时拒绝（name/description/prompt/provider/model 必填）', async () => {
-  const ctx = makeCtx({ spawnTeammate: async () => ({ member: { id: 's-1' } }) });
-  const exec = { agent: { id: 'lead' } };
+  const { ctx } = makeCtx({ sessionId: 's-1' });
   for (const missing of ['name', 'description', 'prompt', 'provider', 'model']) {
     const args = { ...baseArgs };
     delete args[missing];
-    const result = await createTeammateWithModel(ctx, exec, args);
+    const result = await createTeammateWithModel(ctx, { agent: { id: 'lead' } }, args);
     assert.ok(result.error, `${missing} 缺失时应返回 error`);
   }
 });
 
-test('服务不暴露 spawnTeammate 时如实报错', async () => {
-  const ctx = makeCtx({});
-  const result = await createTeammateWithModel(ctx, { agent: { id: 'lead' } }, baseArgs);
-  assert.match(result.error, /spawnTeammate/);
+test('服务缺 spawnTeammate / sendMessage 时如实报错', async () => {
+  const noSpawn = { logger, get: () => ({}) };
+  assert.match((await createTeammateWithModel(noSpawn, { agent: {} }, baseArgs)).error, /spawnTeammate/);
+
+  const { ctx: noSend } = makeCtx({ sessionId: 's-1', withSend: false });
+  assert.match((await createTeammateWithModel(noSend, { agent: {} }, baseArgs)).error, /sendMessage/);
 });
 
 test('拿不到调用方 agent 时拒绝', async () => {
-  const ctx = makeCtx({ spawnTeammate: async () => ({ member: { id: 's-1' } }) });
+  const { ctx } = makeCtx({ sessionId: 's-1' });
   const result = await createTeammateWithModel(ctx, {}, baseArgs);
   assert.match(result.error, /调用方 agent/);
 });
 
-test('正常路径：按入参创建，创建后立刻写 model/selection', async () => {
-  const sessionId = 'session-created-1';
+test('正常路径：占位创建 → 中断 → 设模型 → 投递真实任务（顺序与载荷都要对）', async () => {
+  const sessionId = 'session-created-2';
   const dir = await makeMemberSession(sessionId);
-  const calls = [];
-  const ctx = makeCtx({
-    spawnTeammate: async (caller, request) => {
-      calls.push({ caller, request });
-      return { member: { id: sessionId, name: request.name, provider: request.provider, model: 'default-model' } };
-    },
-  });
+  const { ctx, order, calls } = makeCtx({ sessionId });
   const exec = { agent: { id: 'lead-agent' } };
 
   const result = await createTeammateWithModel(ctx, exec, baseArgs);
   assert.ok(result.ok, `应成功：${JSON.stringify(result)}`);
 
-  // 创建入参：prompt 转成 content block 数组、context 缺省 fresh、provider 透传
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].caller, exec.agent);
-  assert.equal(calls[0].request.name, 'test-member');
-  assert.equal(calls[0].request.provider, 'agnes');
-  assert.equal(calls[0].request.context, 'fresh');
-  assert.deepEqual(calls[0].request.prompt, [{ type: 'text', text: '只回复 OK 即可' }]);
-  assert.ok(calls[0].request.signal, '必须传 AbortSignal');
+  // 顺序：先创建、立刻中断、再投递（设模型夹在中断与投递之间，由日志体现，不在 order 里）
+  assert.deepEqual(order, ['spawn', 'interrupt', 'send']);
 
-  // 切换结果：应当已经写进该成员的会话日志（模型设置这一步不能静默失败）
+  // ① 创建用的是占位任务，绝不能把真实任务带进首轮
+  const spawnPrompt = calls.spawn[0].request.prompt;
+  assert.equal(spawnPrompt.length, 1);
+  assert.match(spawnPrompt[0].text, /待命/);
+  assert.ok(!spawnPrompt[0].text.includes(baseArgs.prompt), '首轮不能带真实任务');
+  assert.equal(calls.spawn[0].request.provider, 'agnes');
+  assert.equal(calls.spawn[0].request.context, 'fresh');
+  assert.equal(calls.spawn[0].caller, exec.agent);
+
+  // ② 中断传的是成员名
+  assert.equal(calls.interrupt[0].target, 'test-member');
+
+  // ③ ④ 真实任务在设模型之后投递，内容就是入参 prompt
+  assert.equal(calls.send[0].request.target, 'test-member');
+  assert.deepEqual(calls.send[0].request.content, [{ type: 'text', text: baseArgs.prompt }]);
+  assert.ok(calls.send[0].request.signal, '投递必须带 AbortSignal');
+
+  // 模型设置真的写进了该成员日志
   assert.ok(!result.switchResult.error, `设模型不应失败：${JSON.stringify(result.switchResult)}`);
   assert.match(String(result.switchResult.via), /model\/selection/);
 
-  // 渲染文本要带上 sessionId 与那条「第一轮可能仍是默认模型」的边界说明
   const text = renderCreateTeammateResult(baseArgs, result);
   assert.match(text, new RegExp(sessionId));
-  assert.match(text, /第一轮/);
+  assert.match(text, /真实任务已投递/);
 
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('切换失败时仍然如实返回成员已创建（不谎报成功）', async () => {
-  const ctx = makeCtx({
-    spawnTeammate: async (caller, request) => ({ member: { id: 'session-no-log-xyz', name: request.name } }),
-  });
+test('设模型失败时不投递真实任务（避免用默认模型白跑）', async () => {
+  const { ctx, order } = makeCtx({ sessionId: 'session-no-log-xyz' });
   const result = await createTeammateWithModel(ctx, { agent: { id: 'lead' } }, baseArgs);
   assert.ok(result.ok);
   assert.ok(result.switchResult.error, '没有日志文件时应报切换失败');
+  assert.equal(result.delivery, null, '不应投递');
+  assert.deepEqual(order, ['spawn', 'interrupt'], '只应发生创建与中断，不该有 send');
   const text = renderCreateTeammateResult(baseArgs, result);
-  assert.match(text, /模型设置失败/);
-  assert.match(text, /set_member_model/, '应提示可稍后用 set_member_model 重试');
+  assert.match(text, /放弃投递/);
+  assert.match(text, /set_member_model/);
+});
+
+test('投递失败时如实回执（模型已设置）', async () => {
+  const sessionId = 'session-created-3';
+  const dir = await makeMemberSession(sessionId);
+  const teams = {
+    async spawnTeammate(caller, request) {
+      return { member: { id: sessionId, name: request.name } };
+    },
+    interrupt: () => ({ previousStatus: 'running' }),
+    sendMessage: async () => {
+      throw new Error('inbox 已关闭');
+    },
+  };
+  const ctx = { logger, get: (name) => (name === 'agentTeams' ? teams : null) };
+  const result = await createTeammateWithModel(ctx, { agent: { id: 'lead' } }, baseArgs);
+  assert.ok(result.ok);
+  assert.ok(!result.switchResult.error, '模型应当已设置成功');
+  assert.match(result.error, /投递真实任务失败/);
+  assert.match(renderCreateTeammateResult(baseArgs, result), /inbox 已关闭/);
+  rmSync(dir, { recursive: true, force: true });
 });
 
 test.after(() => rmSync(home, { recursive: true, force: true }));
