@@ -52,8 +52,16 @@ function makeCtx({ memberId = '', sessionId = '', withSend = true } = {}) {
       return { messageId: 'msg-1' };
     };
   }
+  const subagents = { list: () => ['spawn', 'other-sub'] };
   return {
-    ctx: { logger, get: (name) => (name === 'agentTeams' ? teams : null) },
+    ctx: {
+      logger,
+      get: (name) => {
+        if (name === 'agentTeams') return teams;
+        if (name === 'subagents') return subagents;
+        return null;
+      },
+    },
     order,
     calls,
   };
@@ -108,7 +116,7 @@ test('正常路径：占位创建 → 中断 → 设模型 → 投递真实任�
   assert.equal(spawnPrompt.length, 1);
   assert.match(spawnPrompt[0].text, /待命/);
   assert.ok(!spawnPrompt[0].text.includes(baseArgs.prompt), '首轮不能带真实任务');
-  assert.equal(calls.spawn[0].request.provider, 'agnes');
+  assert.equal(calls.spawn[0].request.provider, 'spawn', '创建用的是子代理 provider，不是模型 provider');
   assert.equal(calls.spawn[0].request.context, 'fresh');
   assert.equal(calls.spawn[0].caller, exec.agent);
 
@@ -155,12 +163,34 @@ test('投递失败时如实回执（模型已设置）', async () => {
       throw new Error('inbox 已关闭');
     },
   };
-  const ctx = { logger, get: (name) => (name === 'agentTeams' ? teams : null) };
+  const ctx = {
+    logger,
+    get: (name) => (name === 'agentTeams' ? teams : name === 'subagents' ? { list: () => ['spawn'] } : null),
+  };
   const result = await createTeammateWithModel(ctx, { agent: { id: 'lead' } }, baseArgs);
   assert.ok(result.ok);
   assert.ok(!result.switchResult.error, '模型应当已设置成功');
   assert.match(result.error, /投递真实任务失败/);
   assert.match(renderCreateTeammateResult(baseArgs, result), /inbox 已关闭/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('显式 subagentProvider 优先；缺失且注册表为空时如实报错', async () => {
+  const sessionId = 'session-created-4';
+  const dir = await makeMemberSession(sessionId);
+  const { ctx, calls } = makeCtx({ sessionId });
+  await createTeammateWithModel(ctx, { agent: { id: 'lead' } }, { ...baseArgs, subagentProvider: 'other-sub' });
+  assert.equal(calls.spawn[0].request.provider, 'other-sub');
+
+  // 注册表为空 → 明确报错（避免再犯「拿模型 provider 去创建」的错）
+  const noSub = {
+    logger,
+    get: (name) => (name === 'agentTeams'
+      ? { spawnTeammate: async () => ({ member: { id: sessionId } }), interrupt: () => ({ previousStatus: 'running' }), sendMessage: async () => ({ messageId: 'm' }) }
+      : name === 'subagents' ? { list: () => [] } : null),
+  };
+  const result = await createTeammateWithModel(noSub, { agent: { id: 'lead' } }, baseArgs);
+  assert.match(result.error, /子代理 provider/);
   rmSync(dir, { recursive: true, force: true });
 });
 
