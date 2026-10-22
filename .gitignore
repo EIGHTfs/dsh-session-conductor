@@ -34,3 +34,6 @@ assets/shots/
 # 预览页生成产物不入库（dsh-useful-tools 的 preview gen 默认写到 <插件根>/assets/preview.html，2026-10-17）
 assets/preview.html
 assets/preview-*.html
+
+# 分析样本（大文件，不入库）
+samples/
