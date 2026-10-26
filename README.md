@@ -27,6 +27,7 @@
 | 上下文用量自查 | AI 按需查自己会话的上下文占用（百分比、已用/容量 tokens）与构成（系统提示词/工具定义/消息文本），占用达 85% 时附收敛建议。数据与界面圆环同源（官方 `contextPressure` / `contextBreakdown` 投影），只读、无参数。**另：每轮把实时用量注入消息尾部**（AI 每轮都能直接看到数字；注入在尾部而非系统提示词前缀 ⇒ 前缀稳定、prompt cache 仍命中；按 turn 门控，一回合只注一次；配置 `injectContextUsage` 可关） | AI 工具 `context_usage` + 每轮注入 |
 | 跨会话消息 | AI 直接给另一个会话发消息（不经过人转达）：先 `list_sessions` 挑目标，再 `send_to_session` 投递；目标空闲时**由本体自动唤醒**它跑一个回合，运行中则排到其下一回合边界（`mode:"steer"` 改为注入当前回合）。全部走本体官方 `prompt` API（幂等 `requestId`、不自己写会话日志）。**支持 `dryRun` 预览**（报告目标状态与限流余量，不投递、不消耗配额）。`list_sessions` 支持 **`query` 子串过滤 + `limit`/`offset` 分页**（默认只给 20 条，避免整表塞进调用方上下文）。**索引快路径 + 后台化**：`fromIndex=true` 直接读落盘索引（秒回、不重建，不含 live 状态与归档态），默认刷新路径先等 3 秒拿热缓存结果、超时就把**同一次在途构建**交给宿主后台 job 并立刻返回 jobId（冷缓存全量构建实测 226 秒 / 201 会话 / 1.5 GB 日志，热缓存 47 毫秒；job 注册失败会同步降级并带回原因）。硬约束：禁自投、协作链跳数 ≥3 拒绝、同一对会话 60s 内最多 5 条 | AI 工具 `list_sessions` / `send_to_session` |
 | 成员权限预设切换 | 给队友/子代理查看与切换**权限预设**（`danger-full-access` / `workspace-write` 等）。**为什么必须有它**：子代理会话在界面上切不了权限预设，而 preset 一旦指向当前不可用的值（典型：`auto` 在「自动审查」关闭后悬空），该成员就永久唤不醒 —— 宿主 `pinInitialPermission()` 在会话发布前抛 `permission: cannot restore preset "auto" without its active integration`，再被 subagent 的 `coldResume()` 统一包成 `subagent/not-resumable`，报错文本完全指不到权限层。实现是**追加一条 `permission/preset` 事件**（独立 zstd 帧、带 checksum、长度 CAS、fsync；已有帧一字节不动，可删尾部回滚），靠宿主折叠语义「最后一条生效」。**参数都可空**：`target` 留空/`*`/`all` = 全部成员（排除 Lead、provisioning、failed）；`preset` 留空/`auto` = 跟随主代理。预设名先从宿主 `permissionPresets.catalog()` 校验，不在列表里直接拒绝（写错的预设会让成员加载失败）。批量串行执行、逐个隔离失败、回执带完整名单 | AI 工具 `set_member_permission` / `list_permission_presets` + 聊天框指令 `/perm-switch` |
+| 成员换名（新建 + 搬内容） | 给成员**换名字**。宿主把 Team 成员名钉死为不可变身份字段（`team/member` 投影里 `name`/`provider`/`context` 一变就抛 `changed immutable identity fields`，且只允许 provisioning → active 这一次写入），也没有任何 rename 接口 —— 所以换名只能「新建一个成员，再把旧内容搬过去」。这条路成立是因为成员名与会话内容分处两地：名字在 **Lead 日志**的 `team/member` 事件里，内容在**成员自己的日志**里，搬内容不会触碰不可变字段。工具 `clone_member_as` 流程：解析源成员 → spawn 新成员（占位任务）→ 中断并等它**真正空闲**（运行中的成员以内存态优先，改磁盘不生效）→ 搬会话事件：保留目标 header 身份、丢弃源的身份类事件、按目标重建 descriptor、**seq 从 0 严格重排**、用官方编码器写（**带 checksum**）→ 写前自检 → 备份后原子替换。旧成员不会被改动，需要脱手自行删除 | AI 工具 `clone_member_as` |
 | 创建成员并选模型 | 一条命令完成「**创建团队成员 + 让第一轮真实任务就用指定模型**」。宿主的 `spawn_teammate` 参数里没有 provider/model（服务层 `SpawnTeammateRequest` 也只有 provider，模型来自 agent-team 插件的 freshProvider/forkProvider 配置），直接创建的话首轮一定用默认模型把真实任务跑掉。本工具因此拆成四步：① 用**占位任务**创建（只消耗一条极短提示）② **立刻中断**把这一轮停掉 ③ **等它真正空闲**（用宿主 `waitForChange` 等状态变化，不睡固定时间；否则取消信号会串到下一轮）④ 写 `model/selection`（与 `set_member_model` 同一条链路，默认不碰任何 @Remote）然后**投递真实任务**。参数里 **`provider`/`model` 是模型 provider**（agnes / wb / sa6400 …）；创建成员另需**子代理 provider**（`ctx.subagents` 注册表，通常 `spawn`），默认自动取第一个，也可用可选参数 `subagentProvider` 指定 —— 两者是不同命名空间，混用会报 `no subagent provider registered`。设模型失败时**不投递**（否则等于用默认模型白跑），投递失败也如实回执。要彻底「创建前定模型」只能改宿主 agent-team（把 model 加进 request），宿主升级会被覆盖 | AI 工具 `create_teammate_with_model` |
 | 指定模型新建会话 | AI 新建会话并可**直接指定 provider/model**（建完即切到该模型），可选带一条初始消息让它立刻开始干活。**缺省工作目录 = 调用方会话自己的 cwd**（不落在 DSH 安装目录里）。本体 `create` 本身不带模型，所以是 `create` → `selectModel` 两步；任一步失败会如实回执（如「会话已建，但模型未设置」），不谎报成功。**支持 `dryRun` 预览**（含模型是否存在于目录的核对），不建会话 | AI 工具 `create_session` |
 
@@ -189,9 +190,40 @@ preview  { action: "serve", file: "<插件根>/assets/preview.html", backend: "h
 要查**实际**在用什么（含历史请求，不只本次进程）或切换：
   /model-switch <成员名或 sessionId>              ← 查实际模型
   /model-switch <成员名或 sessionId> <provider>/<模型>  ← 切换并回显查证
-  /model-switch * <provider>/<模型>                    ← 全部成员切到该模型（回执带名单）
-  /model-switch <成员名|*> auto                        ← 跟随主代理（Lead）当前模型
+
+和别人对齐 / 批量：
+  /model-switch * auto   ← 最常用：所有子代理都换成「我自己现在用的」模型
+  /model-switch <成员名> auto   ← 只让这一个成员换成我自己现在用的模型
+  /model-switch * <provider>/<模型>   ← 所有子代理换成一个指定的模型
+
+* = 全部成员（不含我自己）；auto = 「跟我保持一致」，不用去查我用的是哪个模型。
 ```
+
+### 让全部子代理和我用同一个模型
+
+三种写法都能做到，按场景挑：
+
+| 场景 | 用户指令 | AI 工具调用 |
+|---|---|---|
+| **所有子代理都跟我一致** | `/model-switch * auto` | `set_member_model({})`（三个参数全留空） |
+| 只让某一个跟我一致 | `/model-switch <成员名> auto` | `set_member_model({ target: "<成员名>" })` |
+| 所有子代理统一到指定模型 | `/model-switch * sa6400/deepseek-v4.1-flash` | `set_member_model({ provider: "sa6400", model: "deepseek-v4.1-flash" })` |
+
+**参数留空的语义**（指令与工具一致）：
+
+| 参数 | 留空 / `*` / `auto` 的含义 |
+|---|---|
+| 成员（`target` 或第一个位置参数） | 留空或 `*` = **全部成员**（自动排除我自己，也排除正在创建 / 已失败的） |
+| 模型（`provider`+`model` 或第二个位置参数） | 留空或 `auto` = **跟主代理（Lead）一致**，即我自己当前实际在用的模型 |
+
+「我自己在用的模型」取自**请求级权威记录**（会话日志里的 `request/header`，即真实发出请求时用的值），
+读不到就如实报错，不会拿名册里的静态字段冒充。批量执行**串行**、**逐个隔离失败**、**回执带完整名单**。
+
+权限预设同样支持这套写法：`/perm-switch * auto` = 所有子代理的权限预设跟我一致；
+`set_member_permission({})` 等价。
+
+注意：正在跑回合的成员会被跳过（等 60s 仍未结束则报错并提示先中断）—— 这是有意的，
+运行中切模型不生效，还可能被其内存态覆盖。
 
 「最近请求」取自**进程内真实请求记录**（瞬时、不扫日志）；显示「未知」说明本进程还没见它请求过，用 ② 查历史。若同时显示目标与最近请求且不一致，会附 `⚠️ 与目标不一致（下一回合生效前属正常）`。
 
