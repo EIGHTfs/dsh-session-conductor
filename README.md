@@ -26,6 +26,7 @@
 | 记忆取回 | 检测到上下文用量**明显下降**（默认 ≥10%，可配）即判定「上下文疑似丢失」——压缩、截断、实例重启后快照未加载**都算**（比只盯压缩更全）。此时自动把最近 **3 轮（可配）** 的**用户消息文本 + 该轮 AI 的第一条回应**（优先取当时的 reasoning）重新注入，让 AI 立刻恢复状态。实现要点：按 zstd 帧**流式**读日志（常量内存）、**只认真实用户消息**（排除插件自身注入，防反馈环）、同回合连发**合并成一轮**、注入总长与单条都有上限。配置项 `retrieveMemory*`（默认开）。**另提供 AI 工具 `recall_memory`**（参数 `rounds` = 取几轮，默认取配置、上限 50；参数 `session` = 目标会话：完整 id / 唯一前缀 / 标题子串，缺省或留空即取自身）让 AI 自己按需回溯，**也能取其它会话**（跨会话排查时在会话内直接看到对方上下文；命中多个候选会给出候选清单，不随便挑一个） | 每轮注入（`agent/pre-step`）+ AI 工具 `recall_memory` |
 | 上下文用量自查 | AI 按需查自己会话的上下文占用（百分比、已用/容量 tokens）与构成（系统提示词/工具定义/消息文本），占用达 85% 时附收敛建议。数据与界面圆环同源（官方 `contextPressure` / `contextBreakdown` 投影），只读、无参数。**另：每轮把实时用量注入消息尾部**（AI 每轮都能直接看到数字；注入在尾部而非系统提示词前缀 ⇒ 前缀稳定、prompt cache 仍命中；按 turn 门控，一回合只注一次；配置 `injectContextUsage` 可关） | AI 工具 `context_usage` + 每轮注入 |
 | 跨会话消息 | AI 直接给另一个会话发消息（不经过人转达）：先 `list_sessions` 挑目标，再 `send_to_session` 投递；目标空闲时**由本体自动唤醒**它跑一个回合，运行中则排到其下一回合边界（`mode:"steer"` 改为注入当前回合）。全部走本体官方 `prompt` API（幂等 `requestId`、不自己写会话日志）。**支持 `dryRun` 预览**（报告目标状态与限流余量，不投递、不消耗配额）。`list_sessions` 支持 **`query` 子串过滤 + `limit`/`offset` 分页**（默认只给 20 条，避免整表塞进调用方上下文）。**索引快路径 + 后台化**：`fromIndex=true` 直接读落盘索引（秒回、不重建，不含 live 状态与归档态），默认刷新路径先等 3 秒拿热缓存结果、超时就把**同一次在途构建**交给宿主后台 job 并立刻返回 jobId（冷缓存全量构建实测 226 秒 / 201 会话 / 1.5 GB 日志，热缓存 47 毫秒；job 注册失败会同步降级并带回原因）。硬约束：禁自投、协作链跳数 ≥3 拒绝、同一对会话 60s 内最多 5 条 | AI 工具 `list_sessions` / `send_to_session` |
+| 成员权限预设切换 | 给队友/子代理查看与切换**权限预设**（`danger-full-access` / `workspace-write` 等）。**为什么必须有它**：子代理会话在界面上切不了权限预设，而 preset 一旦指向当前不可用的值（典型：`auto` 在「自动审查」关闭后悬空），该成员就永久唤不醒 —— 宿主 `pinInitialPermission()` 在会话发布前抛 `permission: cannot restore preset "auto" without its active integration`，再被 subagent 的 `coldResume()` 统一包成 `subagent/not-resumable`，报错文本完全指不到权限层。实现是**追加一条 `permission/preset` 事件**（独立 zstd 帧、带 checksum、长度 CAS、fsync；已有帧一字节不动，可删尾部回滚），靠宿主折叠语义「最后一条生效」。**参数都可空**：`target` 留空/`*`/`all` = 全部成员（排除 Lead、provisioning、failed）；`preset` 留空/`auto` = 跟随主代理。预设名先从宿主 `permissionPresets.catalog()` 校验，不在列表里直接拒绝（写错的预设会让成员加载失败）。批量串行执行、逐个隔离失败、回执带完整名单 | AI 工具 `set_member_permission` / `list_permission_presets` + 聊天框指令 `/perm-switch` |
 | 创建成员并选模型 | 一条命令完成「**创建团队成员 + 让第一轮真实任务就用指定模型**」。宿主的 `spawn_teammate` 参数里没有 provider/model（服务层 `SpawnTeammateRequest` 也只有 provider，模型来自 agent-team 插件的 freshProvider/forkProvider 配置），直接创建的话首轮一定用默认模型把真实任务跑掉。本工具因此拆成四步：① 用**占位任务**创建（只消耗一条极短提示）② **立刻中断**把这一轮停掉 ③ **等它真正空闲**（用宿主 `waitForChange` 等状态变化，不睡固定时间；否则取消信号会串到下一轮）④ 写 `model/selection`（与 `set_member_model` 同一条链路，默认不碰任何 @Remote）然后**投递真实任务**。参数里 **`provider`/`model` 是模型 provider**（agnes / wb / sa6400 …）；创建成员另需**子代理 provider**（`ctx.subagents` 注册表，通常 `spawn`），默认自动取第一个，也可用可选参数 `subagentProvider` 指定 —— 两者是不同命名空间，混用会报 `no subagent provider registered`。设模型失败时**不投递**（否则等于用默认模型白跑），投递失败也如实回执。要彻底「创建前定模型」只能改宿主 agent-team（把 model 加进 request），宿主升级会被覆盖 | AI 工具 `create_teammate_with_model` |
 | 指定模型新建会话 | AI 新建会话并可**直接指定 provider/model**（建完即切到该模型），可选带一条初始消息让它立刻开始干活。**缺省工作目录 = 调用方会话自己的 cwd**（不落在 DSH 安装目录里）。本体 `create` 本身不带模型，所以是 `create` → `selectModel` 两步；任一步失败会如实回执（如「会话已建，但模型未设置」），不谎报成功。**支持 `dryRun` 预览**（含模型是否存在于目录的核对），不建会话 | AI 工具 `create_session` |
 
@@ -188,6 +189,8 @@ preview  { action: "serve", file: "<插件根>/assets/preview.html", backend: "h
 要查**实际**在用什么（含历史请求，不只本次进程）或切换：
   /model-switch <成员名或 sessionId>              ← 查实际模型
   /model-switch <成员名或 sessionId> <provider>/<模型>  ← 切换并回显查证
+  /model-switch * <provider>/<模型>                    ← 全部成员切到该模型（回执带名单）
+  /model-switch <成员名|*> auto                        ← 跟随主代理（Lead）当前模型
 ```
 
 「最近请求」取自**进程内真实请求记录**（瞬时、不扫日志）；显示「未知」说明本进程还没见它请求过，用 ② 查历史。若同时显示目标与最近请求且不一致，会附 `⚠️ 与目标不一致（下一回合生效前属正常）`。
@@ -268,3 +271,22 @@ curl -X POST http://<host>/api/session-conductor/archive \
 - [文件目录结构](docs/FILE-TREE.md) — 目录树与文件作用（doc-tree 维护，`tree-doc.json` 注释映射）
 - [版本列表](docs/VERSIONS.md) — 按 git 提交聚合的版本记录表（doc-version 维护）
 - [函数列表](docs/FUNCTIONS.md) — lib/ 全部导出函数的名称/位置/签名（doc-func 维护）
+
+### 聊天框指令：`/perm-switch`
+
+在**用户聊天框**里看/切成员（子代理）的**权限预设**。子代理在界面上切不了权限预设，这条指令是唯一的界面内入口。
+
+```
+/perm-switch                                  # 列成员与各自预设（auto 悬空会告警）
+/perm-switch <成员名|sessionId>                # 查该成员的 preset / sandbox / approval
+/perm-switch <成员名|sessionId> <预设名>        # 切单个成员
+/perm-switch * <预设名>                        # 全部成员切成该预设（回执带完整名单）
+/perm-switch <成员名|*> auto                   # 跟随主代理（Lead）当前预设
+```
+
+**为什么需要它**：子代理会话的 `permission/preset` 一旦指向当前不可用的值（典型：`auto` 在「自动审查」关闭后悬空），
+该成员会永久唤不醒，而宿主只会报一句 `subagent/not-resumable`。典型判据：会话日志最后一条
+`permission/preset` 是 `auto`，且当前可选预设列表里**没有** `auto`。
+
+改动写在会话日志里（追加一条 `permission/preset` 事件，带 checksum），成员下次加载/唤醒时按折叠语义生效
+（最后一条 preset 事件为准）。已有事件不动，可删尾部帧回滚。
