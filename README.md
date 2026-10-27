@@ -225,6 +225,32 @@ preview  { action: "serve", file: "<插件根>/assets/preview.html", backend: "h
 注意：正在跑回合的成员会被跳过（等 60s 仍未结束则报错并提示先中断）—— 这是有意的，
 运行中切模型不生效，还可能被其内存态覆盖。
 
+### 为什么子代理界面上没有「切换模型」按钮
+
+主会话输入框右上角那个模型选择器，在**子代理会话里是宿主硬性关掉的**，不是本插件漏做，也不是宿主漏做：
+
+```js
+// client/ui-model-selection/src/client/index.ts:134
+available: session => sessions.subagentAddress(session.sessionId) === undefined,
+
+// client/ui-model-selection/src/client/directory.ts:153
+throw new Error('model selection is unavailable for addressed subagent sessions')
+```
+
+宿主源码给出的原因（同文件 `index.ts:9-11`）：子代理会话绑定的模型 RPC 会**绕过父级续跑路径去激活已持久化的历史**，
+所以 UI 层把入口直接关掉。任何走 `session.selectModel` 那条 RPC 的实现都会撞上同一个拦截，装插件也绕不过去。
+
+**所以子代理的模型只能由本插件切换** —— 我们写的是 `model/selection` 事件（交给宿主官方投影接管），
+不经过那条被禁的 RPC，因此不受该限制：
+
+| 目的 | 用户指令 | AI 工具 |
+|---|---|---|
+| 单个成员换成指定模型 | `/model-switch <成员名> <provider>/<模型>` | `set_member_model({ target, provider, model })` |
+| 单个成员跟我用同一个 | `/model-switch <成员名> auto` | `set_member_model({ target })` |
+| 全部子代理跟我用同一个 | `/model-switch * auto` | `set_member_model({})` |
+
+权限预设同理（`/perm-switch`、`set_member_permission`）—— 子代理界面上同样没有权限切换入口。
+
 「最近请求」取自**进程内真实请求记录**（瞬时、不扫日志）；显示「未知」说明本进程还没见它请求过，用 ② 查历史。若同时显示目标与最近请求且不一致，会附 `⚠️ 与目标不一致（下一回合生效前属正常）`。
 
 **② 查某个成员实际在用什么**
