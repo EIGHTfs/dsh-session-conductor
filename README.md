@@ -27,37 +27,12 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 | 上下文用量 | 查自己会话的占用与构成 | `context_usage` |
 | 跨会话消息 | 给另一个会话发消息，空闲时自动唤醒 | `list_sessions`、`send_to_session` |
 
-## 安装
-
-1. 把插件源码放到 profile 的真实目录（目录拷贝，不要软链）：
-   ```
-   <DSH_HOME>/profiles/<profile>/local-plugins/dsh-session-conductor/
-   ```
-2. 在 profile 里装依赖：
-   ```
-   dsh plugin --profile <profile> add file:local-plugins/dsh-session-conductor
-   dsh plugin --profile <profile> install
-   ```
-3. 把插件名加进 profile `package.json` 的 `dsh.profile.bundles`；插件自带的 `cordis.patch.yml`
-   必须用顶层 `- insert:` 新建 loader 行。
-4. 重启宿主，确认实例日志里该插件 `loaded`。
-
-从 GitHub 安装（可选）：
-
-```bash
-cd <DSH_HOME>/profiles/<profile>
-pnpm add github:EIGHTfs/dsh-session-conductor#<commit>
-```
-
-`dsh plugin add` 装 git 源当前不可用（会挂死且零输出），请在 profile 目录直跑 pnpm。pnpm 构建 git 源包时
-会在临时目录执行 `npm install`，本机需有 `npm`。用 `#<commit>` 固定版本（仓库远端暂无 tag）。
-
 ## 环境要求
 
 | 项 | 要求 |
 |---|---|
 | DSH | **0.2.1 及以上**（更早版本功能可用，但列表缓存不生效，会话多时列表构建变慢） |
-| Node | 与宿主自带的 Node 一致，无需额外安装 |
+| Node | 与宿主自带的 Node 一致 |
 | 平台 | Linux（群晖 DSM / fnOS 等）；纯 Node 实现，无原生依赖 |
 
 ## 用法
