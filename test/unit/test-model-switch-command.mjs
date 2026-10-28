@@ -59,6 +59,9 @@ test('多参：只取前两段（多余内容不误当模型名）', async () =>
   };
   // 第二段合法、第三段是噪声：解析应只看第二段（切换会因无 domain 失败，但不该报「写法非法」）
   const r = await handleModelSwitchCommand(ctx, { rawInput: 'sess-1 wb/global:glm-5.3-flash 额外噪声' });
-  assert.equal(r.kind, 'error', '工作区没有 domain ⇒ 切换必然失败，这是预期');
+  // 存储域不可用时会降级为文件后备（不再让功能整体失败），所以这里既可 error 也可 success；
+  // 本用例真正要钉的是：第三段噪声不能被当成模型名的一部分、也不能被判成写法非法。
+  assert.ok(['error', 'success'].includes(r.kind), `只关心格式判定，实得 ${r.kind}`);
   assert.doesNotMatch(r.text, /要写成 <provider>/, '不该被判成写法非法');
+  assert.doesNotMatch(r.text, /额外噪声/, '噪声不该被带进模型名');
 });

@@ -26,6 +26,7 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 | 记忆取回 | 上下文用量骤降时自动回注最近几轮对话 | 自动注入 + `recall_memory` |
 | 上下文用量 | 查自己会话的占用与构成 | `context_usage` |
 | 跨会话消息 | 给另一个会话发消息，空闲时自动唤醒 | `list_sessions`、`send_to_session` |
+| 成员轨迹 | 读子代理的完整执行过程：思考、正文、工具调用与结果 | `read_member_trace` |
 
 ## 环境要求
 
@@ -84,6 +85,10 @@ list_sessions({ query, limit, offset, fromIndex }) // 全可空：fromIndex=true
 send_to_session({ sessionId, text, mode, dryRun }) // sessionId/text 必填；mode=queue|steer
 recall_memory({ rounds, session })                 // 都可空：rounds 默认取配置、上限 50；session 空=自己
 context_usage({})                                  // 无参
+read_member_trace({ session, rounds, detail, include, maxCharsPerItem })
+                                                   // session 空=自己（可填成员名/id/前缀/标题）；rounds 默认 1（上限 20）
+                                                   // detail=summary(每条一行)|full(完整文本)；include 可裁 reasoning,text,tool
+                                                   // maxCharsPerItem 单条截断（默认 800）
 ```
 
 典型调用：
@@ -100,6 +105,15 @@ clone_member_as({ source: "probe1", name: "rename1" })
 
 // 给另一个会话发消息（dryRun 先预览目标状态与限流余量）
 send_to_session({ sessionId: "session-xxxx", text: "继续刚才的任务", dryRun: true })
+
+// 看子代理最近一轮的执行过程（子代理只有最后一条回复会被自动发回，中间的思考靠这里读）
+read_member_trace({ session: "writer" })
+
+// 看最近 3 轮，只要思考与工具调用
+read_member_trace({ session: "writer", rounds: 3, include: "reasoning,tool" })
+
+// 要完整文本（默认 summary 每条压成一行）
+read_member_trace({ session: "writer", detail: "full" })
 ```
 
 ## API

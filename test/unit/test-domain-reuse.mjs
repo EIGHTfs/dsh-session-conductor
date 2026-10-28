@@ -45,27 +45,29 @@ test('重载后 open 报 already-open ⇒ 复用宿主里已开的域', { skip: 
   assert.equal(openCalls, 1);
 });
 
-test('宿主没有查已开域的口子时如实抛错，且失败的 open 不留缓存', { skip: skipReason }, async () => {
+test('宿主没有查已开域的口子且 open 报 already-open ⇒ 降级为文件后备（不再整片 500）', { skip: skipReason }, async () => {
+  // 行为变更：域不可用时不再抛错让所有依赖持久化的接口一起失败，而是改读写落盘 JSON。
   resetDomainForTest();
   let openCalls = 0;
   const storage = { open: async () => { openCalls += 1; throw alreadyOpenError(); } };
-  await assert.rejects(() => pluginDomain(makeCtx(storage)), /already open/);
-  await assert.rejects(() => pluginDomain(makeCtx(storage)), /already open/);
-  assert.equal(openCalls, 2);
-  assert.equal(isDomainLive(), false);
+  const d1 = await pluginDomain(makeCtx(storage));
+  assert.equal(openCalls, 1, '第一次 open 会尝试');
+  assert.equal(d1.closed, false, '拿到的是可用（后备）域，而不是抛错');
+  assert.equal(isDomainLive(), false, '后备模式下不算“域存活”');
 });
 
-test('非 already-open 的错误不被吞掉', { skip: skipReason }, async () => {
+test('非 already-open 的 open 失败 ⇒ 同样降级（不吞错，但也不让功能整体不可用）', { skip: skipReason }, async () => {
   resetDomainForTest();
   const storage = { open: async () => { throw new Error('backend-not-found'); }, get: () => undefined };
-  await assert.rejects(() => pluginDomain(makeCtx(storage)), /backend-not-found/);
+  const d2 = await pluginDomain(makeCtx(storage));
+  assert.equal(d2.closed, false, '应降级为文件后备');
   assert.equal(isDomainLive(), false);
 });
 
-test('storageDomain 服务缺失时拒绝并给出可读原因', { skip: skipReason }, async () => {
+test('storageDomain 服务缺失时降级为文件后备（不再让功能整体不可用）', { skip: skipReason }, async () => {
   resetDomainForTest();
-  await assert.rejects(
-    () => pluginDomain({ get: () => undefined, effect: () => {} }),
-    /storageDomain 不可用/
-  );
+  const d = await pluginDomain({ get: () => undefined, effect: () => {} });
+  assert.equal(d.closed, false, '应降级为文件后备而不是抛错');
+  assert.equal(typeof d.global.get, 'function', '后备域要能读 global');
+  assert.equal(typeof d.global.set, 'function', '后备域要能写 global');
 });

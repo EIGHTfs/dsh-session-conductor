@@ -34,7 +34,10 @@ test('resolveSessionTarget：完整 id 直接命中', async () => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-home-'));
   mkdirSync(join(home, 'sessions'), { recursive: true });
   const id = 'session-aaaa1111-0000';
-  mkdirSync(join(home, 'sessions', '--g--', id), { recursive: true });
+  // 判据是「目录里有会话日志文件」，不是「目录名以 session- 开头」⇒ 必须真写一个日志文件
+  const dir = join(home, 'sessions', '--g--', id);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'session.v4.jsonl.zstd'), '');
   process.env.DSH_HOME = home;
   const hit = await resolveSessionTarget({}, id, 'session-self');
   assert.equal(hit?.id, id);
@@ -42,7 +45,11 @@ test('resolveSessionTarget：完整 id 直接命中', async () => {
 
 test('resolveSessionTarget：id 前缀唯一时命中，多个候选时返回候选清单（不猜）', async () => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-home-'));
-  const mk = (id) => mkdirSync(join(home, 'sessions', '--g--', id), { recursive: true });
+  const mk = (id) => {
+    const dir = join(home, 'sessions', '--g--', id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'session.v4.jsonl.zstd'), '');
+  };
   mk('session-aaaa1111-0000');
   mk('session-aaaa2222-0000');
   process.env.DSH_HOME = home;
@@ -50,6 +57,23 @@ test('resolveSessionTarget：id 前缀唯一时命中，多个候选时返回候
   assert.equal(one?.id, 'session-aaaa1111-0000', '前缀唯一应直接命中');
   const many = await resolveSessionTarget({}, 'session-aaaa', 'session-self');
   assert.ok(Array.isArray(many?.candidates) && many.candidates.length === 2, '前缀不唯一应返回候选清单');
+});
+
+test('resolveSessionTarget：裸 UUID 目录（子代理/成员会话）也要能解析', async () => {
+  // 回归钉死：旧实现用 dir.startsWith("session-") 判断会话目录，而成员会话目录名是裸 UUID，
+  // 于是完整 id 与前缀都解析不出来（工具报「找不到目标会话」）。判据必须是「有日志文件」。
+  const home = mkdtempSync(join(tmpdir(), 'dsh-home-'));
+  const bare = 'c9a6a72c-908e-4040-b88c-2e6ce5014378';
+  const dir = join(home, 'sessions', '--g--', bare);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'session.v4.jsonl.zstd'), '');
+  process.env.DSH_HOME = home;
+
+  const full = await resolveSessionTarget({}, bare, 'session-self');
+  assert.equal(full?.id, bare, '完整裸 UUID 应直接命中');
+
+  const prefix = await resolveSessionTarget({}, 'c9a6a72c', 'session-self');
+  assert.equal(prefix?.id, bare, '裸 UUID 前缀也应命中');
 });
 
 test('resolveSessionTarget：找不到就返回 null（调用方据此如实报错）', async () => {

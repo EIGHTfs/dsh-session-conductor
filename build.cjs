@@ -23,6 +23,28 @@ const clientPath = path.join(root, "lib", "client.js");
 //     否则 opener/closer 分片单独解析必然报 Illegal return / Unexpected token，
 //     连审计的 tokenizer 也会走偏（把 CSS 模板串里的数字误当代码魔数）。
 //   · 文本与原来逐字一致（分片里删掉、这里补上），产物 lib/client.js 字节不变。
+// 幂等注册守卫（拼接时所有 load 调用都改走它）。
+//
+// 【解决什么】宿主对插件模块用「invalidate-then-register」保证重载合法，但它只清
+// **插件主模块**一个 id（cordis-client-runner: modules.invalidate(moduleId)）。
+// 本插件是分片拼接，除主块外还有 group / processing / compaction / conductor-settings
+// 四个各自 load() 的独立块 —— 它们没被 invalidate。
+// 于是 client.js 的 rev 一变（任一服务端文件改动导致 bundle 重算），浏览器拉新 URL 执行时，
+// 这些分片 id 已注册过 ⇒ 抛 `duplicate factory registration`，整个前端带崩。
+//
+// 【策略】每个页面生命周期内每个 id 只注册一次。代价是重载后拿到的是旧 factory
+// （新前端代码要硬刷新才生效），但页面不会崩 —— 对「改服务端代码触发 rev 变化」这种
+// 与前端无关的重载，这是正确的取舍。
+const GUARD_TEXT = [
+  'function __dshScLoad(registration) {',
+  '  const seen = (window.__dshScRegistered ??= new Set());',
+  '  if (seen.has(registration.id)) return;',
+  '  seen.add(registration.id);',
+  '  window.__ModuleLoader__.load(registration);',
+  '}',
+  '',
+].join('\n');
+
 const HEAD_TEXT = [
   'window.__ModuleLoader__.load({',
   '  id: "dsh-session-conductor",',
@@ -56,12 +78,15 @@ const PART_ORDER = [
   "components/conductor-settings.js",
 ];
 
-let src = "";
+let src = GUARD_TEXT;
 for (const name of PART_ORDER) {
   if (name === "foundation/bootstrap.js") src += HEAD_TEXT; // 主插件 load 开头
   src += fs.readFileSync(path.join(partsDir, name), "utf8");
   if (name === "apply.js") src += TAIL_TEXT; // 主插件 load 收尾
 }
+
+// 主块（HEAD_TEXT）与四个独立块都是 window.__ModuleLoader__.load({ ... }) 形态，统一改走守卫
+src = src.replaceAll("window.__ModuleLoader__.load({", "__dshScLoad({");
 
 if (process.argv.includes("--check")) {
   const cur = fs.existsSync(clientPath) ? fs.readFileSync(clientPath, "utf8") : "";
