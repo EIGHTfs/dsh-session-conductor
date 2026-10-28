@@ -1,312 +1,131 @@
 # dsh-session-conductor
 
-> DSH（DeepSeek Harness）会话管理增强插件：让会话列表可管理、可修复、可自动续跑。
+DSH 会话管理增强插件：面板管理会话、批量删除与回收站、损坏修复、自动续跑、模板注入，以及成员（子代理）的模型/权限/换名管理。
 
-侧边栏新增「会话管理」面板，归档会话可恢复、支持批量删除、AI 自动重命名、中断自动续跑、按工作区分组显示；设置页提供方案/收尾模板注入与自动重命名模型选择。
+## 功能
 
----
-
-## 功能总览
-
-| 功能 | 说明 | 入口 |
+| 功能 | 做什么 | 入口 |
 |---|---|---|
-| 会话管理面板 | 全部/已归档/活跃/**回收站**/说明五视图；归档、恢复、删除（批量/筛选）、置为不活跃、释放全部空闲 | 侧边栏「会话管理」按钮 |
-| 回收站 | **删除只打标记、不动会话文件**：删掉的会话进回收站，可单条还原、多选还原、按批次撤销（还原最近一次删除），到期（保留天数可设，默认 7 天）或「一键清空」才真正删盘。真正删盘由每小时一次的到期清理执行 | 面板「回收站」标签页 |
-| 自动重命名 | 每个回合后 AI 分析会话内容，主题明显偏离时自动生成新标题（带运行状态后缀） | 面板逐会话开关 |
-| 自动续跑 | 识别非人为中断（崩溃/限流/超时/错误），自动继续原任务；失败后 30s 重试 | 面板逐会话开关（临时设置，重启即默认关） |
-| 会话分组 | 按工作区分组显示；「在分组下新建会话」 | 设置 → 插件 → 会话分组 |
-| 撤回最后一条消息 | 删除最后一条用户消息及整轮回复（先预览 + 二次确认 + .undo-backup 备份） | 面板按钮 |
-| 损坏修复 | 会话日志修复，四类判据：seq-gap / EIO 坏块 / 双格式（jsonl+zstd 并存）/ **zstd 帧级损坏**。最后这类原先修不了（尾部垃圾 + 末帧内容坏 ⇒ 整体放弃），现在支持**截断到最长可解码前缀**：逐帧解码定位安全点、保留原始帧不重编码、备份后原子写回（代价是丢掉不可解码的尾部帧，会如实报告丢了多少）。另：`supportsRepair` 的后端探测原先按 0.1.x 的接口判，0.2.x 已移除该接口 ⇒ 判据恒 false、面板扫描恒 501；现改用文件系统判据，内容修复不可用时**回退帧修复** | 面板「说明」页按钮 + 插件 HTTP `/repair` 系列 |
-| 价值分析 | LLM 按规则给会话分类（已完成/未完成/久未活跃/活跃中） | 面板按钮 |
-| 全文搜索 | 官方 FTS5 优先 + 内置 zstd 扫描兜底 | 面板搜索框 |
-| 压缩模型选择 | 上下文自动压缩用模型独立选择（省成本） | 设置 → 插件 → 压缩模型 |
-| 模板注入 | 方案模板 / 收尾模板：本地设备上传 / 在线网址 / DSH 目录浏览三种导入，内容可再编辑，注入系统提示词（方案/收尾各一条上下文注入） | 设置 → 会话管理 → 模板注入 |
-| 自动重命名模型 | 指定便宜/专用模型做标题分析 | 设置 → 会话管理 |
-| 成员模型切换 | 给队友/子代理单独切模型（只动该成员会话，不影响其他成员）：先用 `list_models` 拿确切模型 id，再 `set_member_model` 按成员名/sessionId 切换（写 `model/selection` 事件交给官方投影接管，跨轮持久；未挂载成员也能切，运行中会先等它暂停）。**返回值直接带「切没切成」的查证**：立刻给「最近一次实际请求的 provider/model（取自 `request/header`，请求级权威记录）+ 最近一次切换意图 + 一行判定」，并**注册查证任务（不阻塞）**——该成员下次发起请求时按 `agent/request` 事件判定，确认结果在下一次 step 注入给发起方（不轮询、不等待）；另附可复制的复核命令 `node scripts/check-member-model.mjs <sessionId>`。判定只认请求时真实使用的模型，不信注入的 `[model changed: …]` 提示。**另提供用户聊天框指令 `/model-switch`**（注册在宿主 `ctx.commands`）：无参 = 列成员与各自模型；`/model-switch <成员>` = 查该成员**实际**在用哪个模型（读请求级权威记录）；`/model-switch <成员> <provider>/<模型>` = 切换并回显查证快照 —— 与 AI 工具共用同一条切换 + 查证路径，用户自己就能操作，不必绕道求 AI | AI 工具 `list_models` / `set_member_model` + 聊天框指令 `/model-switch` + 脚本 `scripts/check-member-model.mjs` |
-| 记忆取回 | 检测到上下文用量**明显下降**（默认 ≥10%，可配）即判定「上下文疑似丢失」——压缩、截断、实例重启后快照未加载**都算**（比只盯压缩更全）。此时自动把最近 **3 轮（可配）** 的**用户消息文本 + 该轮 AI 的第一条回应**（优先取当时的 reasoning）重新注入，让 AI 立刻恢复状态。实现要点：按 zstd 帧**流式**读日志（常量内存）、**只认真实用户消息**（排除插件自身注入，防反馈环）、同回合连发**合并成一轮**、注入总长与单条都有上限。配置项 `retrieveMemory*`（默认开）。**另提供 AI 工具 `recall_memory`**（参数 `rounds` = 取几轮，默认取配置、上限 50；参数 `session` = 目标会话：完整 id / 唯一前缀 / 标题子串，缺省或留空即取自身）让 AI 自己按需回溯，**也能取其它会话**（跨会话排查时在会话内直接看到对方上下文；命中多个候选会给出候选清单，不随便挑一个） | 每轮注入（`agent/pre-step`）+ AI 工具 `recall_memory` |
-| 上下文用量自查 | AI 按需查自己会话的上下文占用（百分比、已用/容量 tokens）与构成（系统提示词/工具定义/消息文本），占用达 85% 时附收敛建议。数据与界面圆环同源（官方 `contextPressure` / `contextBreakdown` 投影），只读、无参数。**另：每轮把实时用量注入消息尾部**（AI 每轮都能直接看到数字；注入在尾部而非系统提示词前缀 ⇒ 前缀稳定、prompt cache 仍命中；按 turn 门控，一回合只注一次；配置 `injectContextUsage` 可关） | AI 工具 `context_usage` + 每轮注入 |
-| 跨会话消息 | AI 直接给另一个会话发消息（不经过人转达）：先 `list_sessions` 挑目标，再 `send_to_session` 投递；目标空闲时**由本体自动唤醒**它跑一个回合，运行中则排到其下一回合边界（`mode:"steer"` 改为注入当前回合）。全部走本体官方 `prompt` API（幂等 `requestId`、不自己写会话日志）。**支持 `dryRun` 预览**（报告目标状态与限流余量，不投递、不消耗配额）。`list_sessions` 支持 **`query` 子串过滤 + `limit`/`offset` 分页**（默认只给 20 条，避免整表塞进调用方上下文）。**索引快路径 + 后台化**：`fromIndex=true` 直接读落盘索引（秒回、不重建，不含 live 状态与归档态），默认刷新路径先等 3 秒拿热缓存结果、超时就把**同一次在途构建**交给宿主后台 job 并立刻返回 jobId（冷缓存全量构建实测 226 秒 / 201 会话 / 1.5 GB 日志，热缓存 47 毫秒；job 注册失败会同步降级并带回原因）。硬约束：禁自投、协作链跳数 ≥3 拒绝、同一对会话 60s 内最多 5 条 | AI 工具 `list_sessions` / `send_to_session` |
-| 成员权限预设切换 | 给队友/子代理查看与切换**权限预设**（`danger-full-access` / `workspace-write` 等）。**为什么必须有它**：子代理会话在界面上切不了权限预设，而 preset 一旦指向当前不可用的值（典型：`auto` 在「自动审查」关闭后悬空），该成员就永久唤不醒 —— 宿主 `pinInitialPermission()` 在会话发布前抛 `permission: cannot restore preset "auto" without its active integration`，再被 subagent 的 `coldResume()` 统一包成 `subagent/not-resumable`，报错文本完全指不到权限层。实现是**追加一条 `permission/preset` 事件**（独立 zstd 帧、带 checksum、长度 CAS、fsync；已有帧一字节不动，可删尾部回滚），靠宿主折叠语义「最后一条生效」。**参数都可空**：`target` 留空/`*`/`all` = 全部成员（排除 Lead、provisioning、failed）；`preset` 留空/`auto` = 跟随主代理。预设名先从宿主 `permissionPresets.catalog()` 校验，不在列表里直接拒绝（写错的预设会让成员加载失败）。批量串行执行、逐个隔离失败、回执带完整名单 | AI 工具 `set_member_permission` / `list_permission_presets` + 聊天框指令 `/perm-switch` |
-| 成员换名（新建 + 搬内容） | 给成员**换名字**。宿主把 Team 成员名钉死为不可变身份字段（`team/member` 投影里 `name`/`provider`/`context` 一变就抛 `changed immutable identity fields`，且只允许 provisioning → active 这一次写入），也没有任何 rename 接口 —— 所以换名只能「新建一个成员，再把旧内容搬过去」。这条路成立是因为成员名与会话内容分处两地：名字在 **Lead 日志**的 `team/member` 事件里，内容在**成员自己的日志**里，搬内容不会触碰不可变字段。工具 `clone_member_as` 流程：解析源成员 → spawn 新成员（占位任务）→ 中断并等它**真正空闲**（运行中的成员以内存态优先，改磁盘不生效）→ 搬会话事件：保留目标 header 身份、丢弃源的身份类事件、按目标重建 descriptor、**seq 从 0 严格重排**、用官方编码器写（**带 checksum**）→ 写前自检 → 备份后原子替换。旧成员不会被改动，需要脱手自行删除 | AI 工具 `clone_member_as` |
-| 创建成员并选模型 | 一条命令完成「**创建团队成员 + 让第一轮真实任务就用指定模型**」。宿主的 `spawn_teammate` 参数里没有 provider/model（服务层 `SpawnTeammateRequest` 也只有 provider，模型来自 agent-team 插件的 freshProvider/forkProvider 配置），直接创建的话首轮一定用默认模型把真实任务跑掉。本工具因此拆成四步：① 用**占位任务**创建（只消耗一条极短提示）② **立刻中断**把这一轮停掉 ③ **等它真正空闲**（用宿主 `waitForChange` 等状态变化，不睡固定时间；否则取消信号会串到下一轮）④ 写 `model/selection`（与 `set_member_model` 同一条链路，默认不碰任何 @Remote）然后**投递真实任务**。参数里 **`provider`/`model` 是模型 provider**（agnes / wb / sa6400 …）；创建成员另需**子代理 provider**（`ctx.subagents` 注册表，通常 `spawn`），默认自动取第一个，也可用可选参数 `subagentProvider` 指定 —— 两者是不同命名空间，混用会报 `no subagent provider registered`。设模型失败时**不投递**（否则等于用默认模型白跑），投递失败也如实回执。要彻底「创建前定模型」只能改宿主 agent-team（把 model 加进 request），宿主升级会被覆盖 | AI 工具 `create_teammate_with_model` |
-| 指定模型新建会话 | AI 新建会话并可**直接指定 provider/model**（建完即切到该模型），可选带一条初始消息让它立刻开始干活。**缺省工作目录 = 调用方会话自己的 cwd**（不落在 DSH 安装目录里）。本体 `create` 本身不带模型，所以是 `create` → `selectModel` 两步；任一步失败会如实回执（如「会话已建，但模型未设置」），不谎报成功。**支持 `dryRun` 预览**（含模型是否存在于目录的核对），不建会话 | AI 工具 `create_session` |
-
-## 界面预览
-
-会话管理面板（侧边栏入口）：
-
-![会话管理面板](assets/screenshots/panel.png)
-
-设置页 · 模板注入（设置 → 会话管理）：
-
-![模板注入设置](assets/screenshots/settings.png)
-
-## 环境要求（支持的 DSH 版本）
-
-| 项 | 要求 |
-|---|---|
-| **DSH 版本** | **0.2.1 及以上（推荐）**；0.2.x 早期版本功能可用，但**列表缓存不生效**（见下） |
-| Node | 与宿主 DSH 自带的 Node 一致（无需额外安装） |
-| 平台 | Linux（群晖 DSM / fnOS 等）；纯 Node 实现，无原生依赖 |
-
-**为什么 0.2.1 是推荐下限**：本插件的会话列表缓存依赖 `sessionPersistence.list()` 返回的
-**`SessionPersistenceSnapshot`**（`{ header, revision, eventCount?, sizeBytes? }`）里的 `revision`
-作为「日志变过没有」的变更令牌。0.2.1 起该 API 稳定提供 `revision`；更早的版本里
-`list()` 只给裸 header（没有 `revision`），插件会**优雅降级**：功能全部正常，
-只是每次列表构建都要重新解析会话日志（会话多、日志大时会明显变慢、内存占用高）。
-
-> 早期代码曾探测 `persistence.listSnapshots()` 并期望它返回 `{ header, revision }` ——
-> 该 session 级方法**在任何 DSH 版本里都不存在**（0.1.6 里同名的 `listSnapshots(profileDir)`
-> 是 profile 快照，另一套东西），所以那个探测永远失败、缓存从未生效过。
-> 1.2.0 起统一改用 `list()` 并按快照解析。
+| 会话管理面板 | 五视图（全部/已归档/活跃/回收站/说明）；归档、删除、撤回、置不活跃、释放空闲 | 侧边栏「会话管理」 |
+| 回收站 | 删除只打标记，可单条/多选/按批次还原；到期或一键清空才真删盘 | 面板「回收站」 |
+| 自动重命名 | 回合后分析内容，主题偏离时生成新标题 | 面板逐会话开关 |
+| 自动续跑 | 识别非人为中断并继续原任务，失败 30s 重试 | 面板逐会话开关 |
+| 会话分组 | 按工作区分组显示；分组下新建会话 | 设置 → 插件 → 会话分组 |
+| 撤回最后一条消息 | 删除最后一条用户消息及整轮回复（预览 + 二次确认 + 备份） | 面板按钮 |
+| 损坏修复 | seq-gap / EIO 坏块 / 双格式 / zstd 帧级损坏 四类 | 面板「说明」页 + `/repair` 系列 |
+| 价值分析 | LLM 给会话分类（已完成/未完成/久未活跃/活跃中） | 面板按钮 |
+| 全文搜索 | FTS5 优先，内置 zstd 扫描兜底 | 面板搜索框 |
+| 压缩模型 | 上下文自动压缩使用独立模型 | 设置 → 插件 → 压缩模型 |
+| 模板注入 | 方案/收尾模板；本地文件、在线网址、目录浏览三种导入 | 设置 → 会话管理 |
+| 自动重命名模型 | 指定标题分析用的模型 | 设置 → 会话管理 |
+| 成员模型切换 | 切单个或全部成员的模型，可跟随主代理 | `/model-switch`、`set_member_model` |
+| 成员权限预设 | 查看/切换成员权限预设，支持批量与跟随 | `/perm-switch`、`set_member_permission` |
+| 成员换名 | 新建成员并把原会话内容搬进去 | `clone_member_as` |
+| 创建成员并选模型 | 创建时即指定模型，首轮就用它 | `create_teammate_with_model` |
+| 指定模型新建会话 | 新建会话并直接指定 provider/model | `create_session` |
+| 记忆取回 | 上下文用量骤降时自动回注最近几轮对话 | 自动注入 + `recall_memory` |
+| 上下文用量 | 查自己会话的占用与构成 | `context_usage` |
+| 跨会话消息 | 给另一个会话发消息，空闲时自动唤醒 | `list_sessions`、`send_to_session` |
 
 ## 安装
 
-装到哪个 profile 由 `--profile` 指定。`dsh plugin` 会把后面的参数**转发给该 profile 目录下的 pnpm**，
-因此第 2 步与「直接在该 profile 目录执行 pnpm」等价（该命令会初始化首次使用的 profile）。
-
-1. **把插件源码放进 profile 的真实目录**（目录拷贝，不要软链）：
+1. 把插件源码放到 profile 的真实目录（目录拷贝，不要软链）：
    ```
    <DSH_HOME>/profiles/<profile>/local-plugins/dsh-session-conductor/
    ```
-2. **用 dsh 在该 profile 里装依赖**（写入 profile 的 `package.json` 与 `node_modules/`）：
+2. 在 profile 里装依赖：
    ```
    dsh plugin --profile <profile> add file:local-plugins/dsh-session-conductor
    dsh plugin --profile <profile> install
    ```
-   装完 profile `package.json` 的 `dependencies` 里应出现
-   `"dsh-session-conductor": "file:local-plugins/dsh-session-conductor"`。
-3. **bundle 形态再补 loader 行**：把插件名加进 profile `package.json` 的 `dsh.profile.bundles`；
-   插件自带的 `cordis.patch.yml` 必须用顶层 `- insert:` **新建** loader 行 —— 顶层 `- id:` 是"覆盖已有行"，
-   基座没有该 id 时市场会报 `patch target not found`。
-4. **装前预演、装后确认**：装前先 dry-run（确认插件入口能被 import、patch 能进组合树、不破坏现有插件组合）；
-   装完重启宿主，并在实例日志里确认该插件 `loaded`。
+3. 把插件名加进 profile `package.json` 的 `dsh.profile.bundles`；插件自带的 `cordis.patch.yml`
+   必须用顶层 `- insert:` 新建 loader 行。
+4. 重启宿主，确认实例日志里该插件 `loaded`。
 
-> 为什么放在 profile 的 `local-plugins/` 而不是全局：插件与宿主版本强绑定，放在 profile 内可随实例
-> 独立升级，也不会让多个 profile 互相污染。
-
-### 从 GitHub 安装（可选）
-
-本仓库是公开仓库，可直接用 GitHub 源安装。
-
-⚠️ **`dsh plugin --profile <名> add …` 当前实测会挂死且零输出**（两次都以 timeout 结束、日志为空）⇒
-安装请在**该 profile 目录里直跑 pnpm**（`dsh plugin` 的设计是把参数转发给 profile 的 pnpm，两者本应等价，
-但转发这条路目前不可用）：
+从 GitHub 安装（可选）：
 
 ```bash
 cd <DSH_HOME>/profiles/<profile>
 pnpm add github:EIGHTfs/dsh-session-conductor#<commit>
-# 等价写法：pnpm add git+https://github.com/EIGHTfs/dsh-session-conductor.git#<commit>
 ```
 
-**前置条件**：
+`dsh plugin add` 装 git 源当前不可用（会挂死且零输出），请在 profile 目录直跑 pnpm。pnpm 构建 git 源包时
+会在临时目录执行 `npm install`，本机需有 `npm`。用 `#<commit>` 固定版本（仓库远端暂无 tag）。
 
-1. **本机要有 `npm`** —— pnpm 构建 git 来源的包时会在临时目录执行 `npm install`；
-   缺 npm 时表现为 `ERR_PNPM_PREPARE_PACKAGE` + `spawn ENOENT: npm: command not found`。
-2. **pnpm 11 默认禁止 git 源依赖执行构建脚本** —— 仅**带 `prepare`/`prepack` 的插件**需要放行
-   （例：dsh-git-push 的 prepare 构建不入库的 `lib/client.js`）。**本仓库没有 prepare/prepack ⇒ 无需这一步**；
-   若安装的是那类插件，先在 profile 的 `pnpm-workspace.yaml` 里加：
+## 环境要求
 
-```yaml
-allowBuilds:
-  <包名>@https://codeload.github.com/<owner>/<repo>/tar.gz/<commit>: true
-```
-
-   ⚠️ key 里带 commit 哈希 ⇒ 换版本/换提交要同步改这一行；否则报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`。
-
-- 用 `#<commit>` 固定版本（本仓库远端暂无 tag，写 `#v1.0.x` 会拉不到）；公开仓库匿名可装，私有仓库才需凭据。
-- 装完同样要做上面的第 3、4 步（`dsh.profile.bundles` + `cordis.patch.yml` 的 `- insert:` + 重启确认 `loaded`）。
-
-## 使用
-
-### 会话管理面板
-
-点击侧边栏底部「会话管理」按钮展开浮层面板：
-
-- **全部**：列出每个会话（标题/目录/时间/状态），支持归档、删除、撤回、自动重命名/续跑开关、搜索、价值分析
-- **已归档**：列出被归档的会话，可恢复（取消归档）、删除
-- **活跃**：当前活跃（live/running）的会话
-- **回收站**：列出被删除（只打了标记）的会话，显示删除时间与剩余天数；五个操作：**设置保留天数**、**撤销上次删除**（还原最近一个批次）、**还原选中**、**全选**、**一键清空**（二次确认后立即真删）。单条也能点行内「还原」
-- **说明**：损坏修复（seq-gap / EIO / 双格式）+ 使用说明
-
-> 删除语义：面板上的「删除」= 在索引里打标记 + 从列表隐藏，**会话日志文件原样保留**，
-> 所以还原是秒级且零风险。真正删盘只发生在回收站到期（`trashRetentionDays`，默认 7 天）
-> 或「一键清空」，由 `purgeExpiredTrash` 执行。
-
-### 设置页（设置 → 会话管理）
-
-左侧栏「会话管理」独立页：
-
-- **模板注入**：方案模板 / 收尾模板两个槽位。每个槽位下拉选导入方式：
-  - **本地文件**：从设备选择上传（系统文件选择器）
-  - **在线 md 网址**：输入网址，后端下载转存
-  - **DSH 目录浏览**：路径选择悬浮窗（目录树 + 路径输入，点 .md 选中后导入）
-  导入内容显示在编辑框（动态高度、自动换行），**可再次编辑并保存**；开启后注入系统提示词，AI 一开始就看见（方案/收尾各一条上下文注入）。
-- **自动重命名模型**：选择标题分析用的模型（跟随会话模型或指定便宜/专用模型）
-
-### 真实后端预览页
-
-改 UI 后免重启查看效果 —— **预览能力已移出本插件**，统一用独立插件 `dsh-useful-tools`（**0.1.11**）的 `preview` / `minihost` 工具。
-
-**最短三行（实测可用；本仓库没有 `assets/preview.spec.mjs` 也能出真实界面）**：
-
-```
-minihost { action: "start", plugin: "<插件根>", port: 31177, services: "<插件根>/test/api/helpers/fake-services.mjs" }
-preview  { action: "gen",   plugin: "<插件根>" }
-preview  { action: "serve", file: "<插件根>/assets/preview.html", backend: "http://127.0.0.1:31177" }
-```
-
-停止：`minihost { action:"stop", port:31177 }` + `preview { action:"stop", port:31188 }`；状态：两者都用 `action:"status"`。
-
-**要点**：
-
-- **`services` 必须传**（0.1.11 新增）：本插件 `apply()` 依赖 `storageDomain` 等宿主服务，不注入时 `/templates` 会 500、页面显示「storageDomain 不可用」；注入 `test/api/helpers/fake-services.mjs` 后 `/templates` 返回 200 真实数据（已实测）。
-- **autoMount**（0.1.7 起）：无 spec 时 mock 宿主 `__ModuleLoader__` / `require` / `ctx`（slots / locale / effect），调插件 `apply(ctx)`，把 `slots.register(def, component)` 捕获到的组件 `createRoot().render()` 到 `#root`。**限制**：组件若依赖 `useSettings` / `useSession` 这类宿主 hooks 会渲染失败（页面会显示错误与已捕获插槽清单，不白屏）；要 100% 还原仍需 spec 提供 mock。locale 取插件自己 `ctx.locale.register` 的字典，键名不一致会回退成 key。
-- `gen` 默认产物是 `<插件根>/assets/preview.html`（会写进仓库）⇒ 不想入库就传 `out`（如 `out: "<临时目录>/preview.html"`），并让 `serve` 的 `file` 指向同一路径。本仓库已把该产物加进 `.gitignore`。
-- `serve` 默认端口 **31188**，显式传 `port` 才用你给的；`backend` 可指向 minihost 的端口（`/api/*` 反代到模拟后端），也可指向**真实 DSH 后端**。
-- 显式传 `spec` 但文件不存在会**直接报错**（不静默降级）—— 故意的，避免指错文件还生成一个看不懂的页面。
-- **截图**（README 配图）走 **browser 插件的 `browser_screenshot`**；「自包含快照」形态不做（理由见 `dsh-useful-tools` 的 `docs/NOT-DONE.md`）。
-- **隔离实例自测**（0.1.8/0.1.9）：`test_env { action:"create"|"start"|"stop"|"status", plugin, pluginName }` 起独立 `DSH_HOME` + 自动端口的实例；`sync_plugin { write:true, register:true, dshHome:"<测试环境 DSH_HOME>" }` 把插件装进去（写 profile 的 `dependencies` + `dsh.profile.bundles`，并对齐 `node_modules` 副本）。
-- 停止：`minihost { action: "stop", port: 31177 }` + `preview { action: "stop", port: 31200 }`；状态：两者都用 `action: "status"`。
-- **截图**（README 配图）改走 **browser 插件的 `browser_screenshot`**；「自包含快照」形态不做（理由见 `dsh-useful-tools` 的 `docs/NOT-DONE.md`）。
-
-### 聊天框指令：`/model-switch`
-
-在**用户聊天框**里直接看/切成员（子代理）的模型，不必求 AI。指令由插件注册到宿主的
-`ctx.commands` 服务，**在插件加载时生效** —— 装好或更新后需重载一次实例，输入框里敲 `/model` 才有补全。
-
-**① 看有哪些成员、各自在用什么**
-
-```
-/model-switch
-```
-
-```
-成员模型（共 2 个）
-
-· model-test(session-aaaa-1111) — 最近请求=wb/cn:deepseek-v4-flash
-· writer(session-bbbb-2222) — 最近请求=n/deepseek-v4.1-flash
-
-要查**实际**在用什么（含历史请求，不只本次进程）或切换：
-  /model-switch <成员名或 sessionId>              ← 查实际模型
-  /model-switch <成员名或 sessionId> <provider>/<模型>  ← 切换并回显查证
-
-和别人对齐 / 批量：
-  /model-switch * auto   ← 最常用：所有子代理都换成「我自己现在用的」模型
-  /model-switch <成员名> auto   ← 只让这一个成员换成我自己现在用的模型
-  /model-switch * <provider>/<模型>   ← 所有子代理换成一个指定的模型
-
-* = 全部成员（不含我自己）；auto = 「跟我保持一致」，不用去查我用的是哪个模型。
-```
-
-### 让全部子代理和我用同一个模型
-
-三种写法都能做到，按场景挑：
-
-| 场景 | 用户指令 | AI 工具调用 |
-|---|---|---|
-| **所有子代理都跟我一致** | `/model-switch * auto` | `set_member_model({})`（三个参数全留空） |
-| 只让某一个跟我一致 | `/model-switch <成员名> auto` | `set_member_model({ target: "<成员名>" })` |
-| 所有子代理统一到指定模型 | `/model-switch * sa6400/deepseek-v4.1-flash` | `set_member_model({ provider: "sa6400", model: "deepseek-v4.1-flash" })` |
-
-**参数留空的语义**（指令与工具一致）：
-
-| 参数 | 留空 / `*` / `auto` 的含义 |
+| 项 | 要求 |
 |---|---|
-| 成员（`target` 或第一个位置参数） | 留空或 `*` = **全部成员**（自动排除我自己，也排除正在创建 / 已失败的） |
-| 模型（`provider`+`model` 或第二个位置参数） | 留空或 `auto` = **跟主代理（Lead）一致**，即我自己当前实际在用的模型 |
+| DSH | **0.2.1 及以上**（更早版本功能可用，但列表缓存不生效，会话多时列表构建变慢） |
+| Node | 与宿主自带的 Node 一致，无需额外安装 |
+| 平台 | Linux（群晖 DSM / fnOS 等）；纯 Node 实现，无原生依赖 |
 
-「我自己在用的模型」取自**请求级权威记录**（会话日志里的 `request/header`，即真实发出请求时用的值），
-读不到就如实报错，不会拿名册里的静态字段冒充。批量执行**串行**、**逐个隔离失败**、**回执带完整名单**。
+## 用法
 
-权限预设同样支持这套写法：`/perm-switch * auto` = 所有子代理的权限预设跟我一致；
-`set_member_permission({})` 等价。
+### 面板与设置页
 
-注意：正在跑回合的成员会被跳过（等 60s 仍未结束则报错并提示先中断）—— 这是有意的，
-运行中切模型不生效，还可能被其内存态覆盖。
+- **面板**：侧边栏底部「会话管理」展开。五个视图分别是全部、已归档、活跃、回收站、说明。
+  行内可归档、删除、撤回最后一条消息、开关自动重命名/自动续跑；顶部可搜索、价值分析、释放全部空闲。
+- **设置页**：左侧栏「会话管理」独立页。模板注入（方案/收尾两个槽位，可上传本地 md、填在线网址、
+  浏览 DSH 目录导入，导入后可再编辑）与自动重命名模型选择。
 
-### 为什么子代理界面上没有「切换模型」按钮
+### 聊天框指令
 
-主会话输入框右上角那个模型选择器，在**子代理会话里是宿主硬性关掉的**，不是本插件漏做，也不是宿主漏做：
+`/model-switch` —— 查看/切换成员模型：
+
+```
+/model-switch                                      # 无参：列出成员与各自模型
+/model-switch writer                               # 只给成员：查它实际在用的模型
+/model-switch writer sa6400/deepseek-v4.1-flash    # 成员 + 模型：切换
+/model-switch * auto                               # 成员写 * = 全部；模型写 auto = 跟随我
+```
+
+`/perm-switch` —— 查看/切换成员权限预设：
+
+```
+/perm-switch                        # 无参：列出成员与各自预设
+/perm-switch writer                 # 只给成员：查 preset / sandbox / approval
+/perm-switch writer danger-full-access   # 成员 + 预设：切换
+/perm-switch * auto                 # 成员写 * = 全部；预设写 auto = 跟随我
+```
+
+两条指令都支持：成员位置可填成员名、唯一子串或 sessionId；`*` 表示全部成员（不含自己）；
+`auto` 表示跟随主代理当前值。切换后回执会带上「实际生效」的查证结果。
+
+### AI 工具
 
 ```js
-// client/ui-model-selection/src/client/index.ts:134
-available: session => sessions.subagentAddress(session.sessionId) === undefined,
-
-// client/ui-model-selection/src/client/directory.ts:153
-throw new Error('model selection is unavailable for addressed subagent sessions')
+list_models({})                                    // 列出可用 provider 与模型 id
+set_member_model({ target, provider, model })      // 三者都可空：target 空=全部成员；provider/model 空=跟随我
+set_member_permission({ target, preset })          // 两者都可空：target 空=全部成员；preset 空=跟随我
+list_permission_presets({})                        // 列出可选权限预设
+clone_member_as({ source, name, description, withHistory, provider, model, subagentProvider })
+                                                   // source/name 必填；withHistory 默认 true（false=只建空成员）
+create_teammate_with_model({ name, description, prompt, provider, model, subagentProvider, context })
+                                                   // name/description/prompt/provider/model 必填
+create_session({ cwd, workspaceId, provider, model, text, dryRun, sessionId })
+                                                   // 全可空：cwd 缺省=调用方 cwd；dryRun=true 只预览
+list_sessions({ query, limit, offset, fromIndex }) // 全可空：fromIndex=true 直接读索引（秒回）
+send_to_session({ sessionId, text, mode, dryRun }) // sessionId/text 必填；mode=queue|steer
+recall_memory({ rounds, session })                 // 都可空：rounds 默认取配置、上限 50；session 空=自己
+context_usage({})                                  // 无参
 ```
 
-宿主源码给出的原因（同文件 `index.ts:9-11`）：子代理会话绑定的模型 RPC 会**绕过父级续跑路径去激活已持久化的历史**，
-所以 UI 层把入口直接关掉。任何走 `session.selectModel` 那条 RPC 的实现都会撞上同一个拦截，装插件也绕不过去。
+典型调用：
 
-**所以子代理的模型只能由本插件切换** —— 我们写的是 `model/selection` 事件（交给宿主官方投影接管），
-不经过那条被禁的 RPC，因此不受该限制：
+```js
+// 全部子代理都换成我现在用的模型
+set_member_model({})
 
-| 目的 | 用户指令 | AI 工具 |
-|---|---|---|
-| 单个成员换成指定模型 | `/model-switch <成员名> <provider>/<模型>` | `set_member_model({ target, provider, model })` |
-| 单个成员跟我用同一个 | `/model-switch <成员名> auto` | `set_member_model({ target })` |
-| 全部子代理跟我用同一个 | `/model-switch * auto` | `set_member_model({})` |
+// 只把 writer 切到指定模型
+set_member_model({ target: "writer", provider: "sa6400", model: "cn:deepseek-v4.1-flash" })
 
-权限预设同理（`/perm-switch`、`set_member_permission`）—— 子代理界面上同样没有权限切换入口。
+// 把 probe1 克隆成 rename1（换名用）
+clone_member_as({ source: "probe1", name: "rename1" })
 
-### 模型切换为什么要写 override（以及它和官方界面的关系）
-
-官方模型选择链是「投影 pending → 会话请求头 → 部署默认」：写 `model/selection` 事件只让 pending
-生效**一轮**，被 `request/header` 消费后，新回合会沿请求头链回落，最终回到部署默认模型。
-所以本插件在 `agent/request` 瀑布流里按会话强制改写请求配置（每轮都改 → 跨轮必然持久），
-这份持久状态存在插件域 `memberModelOverrides` 里。
-
-**这个机制曾有致命副作用**（1.3.18 修复）：override 优先级高于官方链路，一旦写入，
-用户在主会话界面用官方模型选择器切换就**完全无效** —— 界面显示新模型、请求一直走 override 里的旧模型，
-不报错、不提示、也没有清除入口。现场表现为「界面切三次、跨三个回合、改日志、重启宿主全都不动」。
-
-**现在的行为**：官方切换会往 `modelSelection` 投影写 `pending`，插件每轮请求前把它与 override 比对，
-不一致就**把 override 同步成官方的新值**（同步而非清除 —— 既让界面选择立刻生效，又保留跨轮持久能力）。
-同步失败只记一条日志并退回旧 override，绝不打断请求。
-
-使用注意：
-
-- 同步只发生在**已有 override 的会话**上；没有 override 的会话完全交给官方链路，插件不干预。
-- `set_member_model` 的批量「跟随主代理」（`auto` / 三参数全空）写入的是**当时**主代理用的模型；
-  之后主代理再换模型，这些成员**不会**自动跟着变（需再执行一次）。
-- 想让某个会话彻底回到「官方说了算」，执行一次官方界面切换即可（override 会被同步成新值）。
-
-「最近请求」取自**进程内真实请求记录**（瞬时、不扫日志）；显示「未知」说明本进程还没见它请求过，用 ② 查历史。若同时显示目标与最近请求且不一致，会附 `⚠️ 与目标不一致（下一回合生效前属正常）`。
-
-**② 查某个成员实际在用什么**
-
+// 给另一个会话发消息（dryRun 先预览目标状态与限流余量）
+send_to_session({ sessionId: "session-xxxx", text: "继续刚才的任务", dryRun: true })
 ```
-/model-switch writer
-```
-
-```
-成员 writer(session-bbbb-2222)
-
-实际请求使用：n/deepseek-v4.1-flash（2026/10/17 05:18:00）
-最近切换意图：n/deepseek-v4.1-flash
-
-切换：/model-switch writer <provider>/<模型>
-```
-
-判定只认**请求时真实使用**的模型（日志里 `request/header` 的 `data.header.config.{provider,model}`），不拿「切换意图」当结论 —— 实测出现过「提示是 agni、请求头仍是 wb」的不一致。日志尚无记录时会回退显示「本次进程内观察到的最近请求」，而不是武断地说没有。
-
-**③ 切换，并回显查证结果**
-
-```
-/model-switch writer n/deepseek-v4.1-flash
-```
-
-```
-已把成员 writer(session-bbbb-2222) 切到 n/deepseek-v4.1-flash
-生效方式：model/selection 事件（官方投影接管）…
-最近一次实际请求：wb/cn:deepseek-v4-flash（2026/10/17 05:18:00）
-判定：⏳ 待下一回合生效（最近一次请求是切换前发出的，属正常）
-确认结果会在该成员下次发起请求时注入回发起方（事件驱动，不阻塞）。
-```
-
-看到 **⏳ 不代表失败**：切换本就下一回合生效（当前那次请求早已发出）。该成员下次请求时插件按事件判定，并把 `【切换查证】✅ 已确认生效：…`（或 `❌ 未生效：期望 X，实际 Y` —— 不假装成功）注入回发起方。定位可用**成员名**或 **sessionId**（名字支持唯一子串，重名会要求写全）；模型必须写成 `provider/model`，写错会直接给正确格式。
 
 ## API
 
@@ -314,24 +133,19 @@ throw new Error('model selection is unavailable for addressed subagent sessions'
 
 | 端点 | 方法 | 用途 |
 |---|---|---|
-| `/list` | GET | 会话列表（标题/目录/时间/状态，落盘缓存按 revision 增量）。**`?fromIndex=true`**：与工具 `list_sessions` 的 `fromIndex` 同义 —— 直接读落盘索引、**不做全量构建**，秒回精简列表（`{ok, fromIndex, sessions, hint}`，不含 live 状态与归档态）。加 `?job=1` 或请求头 `Accept: application/x-job` 改为注册宿主后台 job 并即刻返回 jobId（构建慢时不阻塞请求）；**HTTP 入口没有执行主体**，宿主 job 控制器可能拒绝无主注册（实测回 `no job controller serves this agent`）—— 此时**不再直接 501**，而是回退为落盘索引快照（`async:false` + `fromIndex:true` + `jobUnavailable` 原因），索引也没有才如实 501 |
-| `/archive` / `/restore` | POST | 归档 / 恢复会话 |
+| `/list` | GET | 会话列表；`?fromIndex=true` 读落盘索引秒回，`?job=1` 交给后台 job |
+| `/archive` `/restore` | POST | 归档 / 恢复会话 |
 | `/delete` | POST | 删除会话（拒绝运行中） |
 | `/undo` | POST | 撤回最后一条消息 |
-| `/auto-rename` | POST | 自动重命名开关 |
-| `/auto-continue` | POST | 自动续跑开关 |
+| `/auto-rename` `/auto-continue` | POST | 两个逐会话开关 |
 | `/auto-continue-gate` | GET/POST | 全局续跑闸门 |
 | `/release` | POST | 释放空闲会话 |
 | `/value-analysis` | POST | 价值分析 |
-| `/repair` / `/repair-eio` / `/repair-dual` | POST | 三类损坏修复 |
+| `/repair` `/repair-eio` `/repair-dual` | POST | 三类损坏修复 |
 | `/search` | GET | 全文搜索 |
-| `/compaction-model` | GET/POST | 压缩模型 |
-| `/templates` | GET/POST | 模板注入（slots 元信息 + 内容） |
-| `/templates/dir` | GET | 目录浏览 |
-| `/auto-rename-model` | GET | 自动重命名模型（透传官方 modelCatalog） |
-| `/i18n` | GET | 语言包（zh/en 外置 JSON） |
-
-示例：
+| `/compaction-model` `/auto-rename-model` | GET/POST | 两个模型设置 |
+| `/templates` `/templates/dir` | GET/POST | 模板注入与目录浏览 |
+| `/i18n` | GET | 语言包（zh/en） |
 
 ```bash
 curl http://<host>/api/session-conductor/list
@@ -346,27 +160,7 @@ curl -X POST http://<host>/api/session-conductor/archive \
 
 ## 文档索引
 
-> 文件目录结构、版本列表、函数列表由 dsh-git-push 的 doc-tree / doc-version / doc-func 工具维护（独立 md，README 只引用）：
-
-- [文件目录结构](docs/FILE-TREE.md) — 目录树与文件作用（doc-tree 维护，`tree-doc.json` 注释映射）
-- [版本列表](docs/VERSIONS.md) — 按 git 提交聚合的版本记录表（doc-version 维护）
-- [函数列表](docs/FUNCTIONS.md) — lib/ 全部导出函数的名称/位置/签名（doc-func 维护）
-
-### 聊天框指令：`/perm-switch`
-
-在**用户聊天框**里看/切成员（子代理）的**权限预设**。子代理在界面上切不了权限预设，这条指令是唯一的界面内入口。
-
-```
-/perm-switch                                  # 列成员与各自预设（auto 悬空会告警）
-/perm-switch <成员名|sessionId>                # 查该成员的 preset / sandbox / approval
-/perm-switch <成员名|sessionId> <预设名>        # 切单个成员
-/perm-switch * <预设名>                        # 全部成员切成该预设（回执带完整名单）
-/perm-switch <成员名|*> auto                   # 跟随主代理（Lead）当前预设
-```
-
-**为什么需要它**：子代理会话的 `permission/preset` 一旦指向当前不可用的值（典型：`auto` 在「自动审查」关闭后悬空），
-该成员会永久唤不醒，而宿主只会报一句 `subagent/not-resumable`。典型判据：会话日志最后一条
-`permission/preset` 是 `auto`，且当前可选预设列表里**没有** `auto`。
-
-改动写在会话日志里（追加一条 `permission/preset` 事件，带 checksum），成员下次加载/唤醒时按折叠语义生效
-（最后一条 preset 事件为准）。已有事件不动，可删尾部帧回滚。
+- [文件目录结构](docs/FILE-TREE.md) — 目录树与文件作用
+- [版本列表](docs/VERSIONS.md) — 按 git 提交聚合的版本记录
+- [函数列表](docs/FUNCTIONS.md) — lib/ 导出函数的名称/位置/签名
+- [模型与权限切换机制](docs/模型与权限切换机制.MD) — 子代理切换的实现依据与内部机制
