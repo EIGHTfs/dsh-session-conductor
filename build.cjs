@@ -25,23 +25,34 @@ const clientPath = path.join(root, "lib", "client.js");
 //   · 文本与原来逐字一致（分片里删掉、这里补上），产物 lib/client.js 字节不变。
 // 幂等注册守卫（拼接时所有 load 调用都改走它）。
 //
-// 【解决什么】宿主对插件模块用「invalidate-then-register」保证重载合法，但它只清
-// **插件主模块**一个 id（cordis-client-runner: modules.invalidate(moduleId)）。
-// 本插件是分片拼接，除主块外还有 group / processing / compaction / conductor-settings
-// 四个各自 load() 的独立块 —— 它们没被 invalidate。
-// 于是 client.js 的 rev 一变（任一服务端文件改动导致 bundle 重算），浏览器拉新 URL 执行时，
-// 这些分片 id 已注册过 ⇒ 抛 `duplicate factory registration`，整个前端带崩。
+// 【解决什么】宿主对插件模块用「invalidate-then-register」保证重载合法，但它只 invalidate
+// **插件主模块**一个 id（cordis-client-runner: modules.invalidate(moduleId)）。本插件是分片拼接，
+// 除主块外还有 group / processing / compaction / conductor-settings 四个各自 load() 的独立块，
+// 它们没被 invalidate。于是 client.js 的 rev 一变（任一服务端文件改动导致 bundle 重算），
+// 浏览器执行新 URL 时这些分片 id 已在模块表里 ⇒ duplicate factory registration，整个前端带崩。
 //
-// 【策略】每个页面生命周期内每个 id 只注册一次。代价是重载后拿到的是旧 factory
-// （新前端代码要硬刷新才生效），但页面不会崩 —— 对「改服务端代码触发 rev 变化」这种
-// 与前端无关的重载，这是正确的取舍。
+// 【两个版本的教训】
+// · v1「同 id 只注册一次」（window 级 Set）：重载场景反而坏事 —— 宿主先 invalidate 主模块 id
+//   再执行新 bundle，守卫一看 Set 里有就跳过，结果主模块没注册回去，宿主加载后校验
+//   `factories.has(主id)` 失败 ⇒ `loaded without registering`（比 duplicate 更糟，插件直接加载不出）。
+// · v2（本版）按「谁会被宿主清掉」分治：
+//   · 主模块 id：宿主每次重载前必然已 invalidate ⇒ **无条件注册**（合法且必须）；
+//   · 分片 id：宿主不清 ⇒ 每次 bundle 执行都换新 id（加执行周期后缀 @n），天然不与旧表冲突；
+//   · 同一执行周期内再用 Set 防同 id 重复（防未来分片重复注册）。
+//   代价：每次重载旧分片 factory 留在宿主模块表里（内存多几份小闭包，可忽略；硬刷新即清）。
 const GUARD_TEXT = [
   'function __dshScLoad(registration) {',
-  '  const seen = (window.__dshScRegistered ??= new Set());',
-  '  if (seen.has(registration.id)) return;',
-  '  seen.add(registration.id);',
-  '  window.__ModuleLoader__.load(registration);',
+  '  const host = window.__ModuleLoader__;',
+  '  if (registration.id === "dsh-session-conductor") { host.load(registration); return; }',
+  '  const cycle = (window.__dshScCycle = (window.__dshScCycle ?? 0) + (window.__dshScCycleOpen ? 0 : 1));',
+  '  window.__dshScCycleOpen = true;',
+  '  const seen = (window.__dshScSeen ??= new Set());',
+  '  const id = `${registration.id}@${cycle}`;',
+  '  if (seen.has(id)) return;',
+  '  seen.add(id);',
+  '  host.load({ ...registration, id });',
   '}',
+  'window.__dshScCycleOpen = false;',
   '',
 ].join('\n');
 
