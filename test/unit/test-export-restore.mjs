@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { encodePlainToZstd, scanExportDir, restoreSessionsFromExport } from '../../lib/sessions/export-restore.js';
+import { createHash } from 'node:crypto';
+import { encodePlainToZstd, scanExportDir, restoreSessionsFromExport, restoreExportMedia } from '../../lib/sessions/export-restore.js';
 import { scanZstdFrames, validateHeaderFrame, decodeAllFrames } from '../../lib/zstd-frames.js';
 
 /** 造明文 jsonl（header + events），可指定 inherited 标记位置。 */
@@ -154,6 +155,45 @@ test('恢复后必须清掉该会话的 projcache（否则界面仍显示旧内�
   // 没传 ctx 时必须如实标注「未尝试 detach」，不能假装生效
   assert.equal(item.detached, false);
   assert.match(String(item.note ?? ''), /未传 ctx/);
+});
+
+test('restoreExportMedia：恢复附件对象并按内容寻址去重 / 拒绝内容不符的文件', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'dsh-media-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+
+  const exportDir = join(home, 'export');
+  const mediaDir = join(exportDir, 'media');
+  mkdirSync(mediaDir, { recursive: true });
+
+  // 两个内容明确的文件：good 的哈希与文件名一致；bad 的名字是 good 的哈希但内容不同
+  const goodBuf = Buffer.from('attachment-bytes-good');
+  const goodHash = createHash('sha256').update(goodBuf).digest('hex');
+  writeFileSync(join(mediaDir, `sha256:${goodHash}.jpg`), goodBuf);
+  writeFileSync(join(mediaDir, `sha256:${goodHash}.jpg.bak`), Buffer.from('x')); // 命名不合规 → 拒绝
+  const badBuf = Buffer.from('attachment-bytes-bad');
+  const badHash = createHash('sha256').update(Buffer.from('something-else')).digest('hex');
+  writeFileSync(join(mediaDir, `sha256:${badHash}.jpg`), badBuf); // 内容与名字不符 → 拒绝
+
+  const objRoot = join(home, 'attachments', 'v1', 'objects');
+
+  // dryRun：只统计不写盘
+  const dry = await restoreExportMedia({ exportDir, home, dryRun: true });
+  assert.equal(dry.placed, 1, `dryRun 应只统计 1 个合格附件，实际 ${dry.placed}`);
+  assert.equal(dry.rejected, 2);
+  assert.equal(existsSync(objRoot), false, 'dryRun 不得创建对象库');
+
+  // 真执行
+  const real = await restoreExportMedia({ exportDir, home, dryRun: false });
+  assert.equal(real.placed, 1);
+  assert.equal(real.rejected, 2);
+  const target = join(objRoot, goodHash.slice(0, 2), goodHash);
+  assert.ok(existsSync(target), '附件必须落到 <objects>/<前两位>/<hash>');
+  assert.deepEqual(readFileSync(target), goodBuf, '内容必须逐字节一致');
+
+  // 再跑一次：内容寻址天然幂等，全部计为「已存在」
+  const again = await restoreExportMedia({ exportDir, home, dryRun: false });
+  assert.equal(again.placed, 0);
+  assert.equal(again.existed, 1);
 });
 
 test('restoreSessionsFromExport：exportDir 不存在时如实报错', async () => {
