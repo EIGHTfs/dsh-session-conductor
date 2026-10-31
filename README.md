@@ -54,7 +54,10 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 /model-switch writer                               # 只给成员：查它实际在用的模型
 /model-switch writer sa6400/deepseek-v4.1-flash    # 成员 + 模型：切换
 /model-switch * auto                               # 成员写 * = 全部；模型写 auto = 跟随我
+/model-switch writer sa6400/xxx override           # 加 override：额外写持久覆盖（每轮强制改写）
 ```
+
+**已删成员的清理**：成员记录存在两处 —— 父会话日志里的 `subagent/catalog` 事件（名册数据源）与成员自己的会话目录。删掉成员会话目录后父日志那条记录仍在，名册会列出点不开的幽灵条目。插件在**名册读取层**过滤这类悬空条目（会话目录不存在、内存里也没有 agent），父会话日志不做任何改写；删除本身走既有会话删除能力，删完名册缓存立即失效、列表马上刷新。
 
 `/perm-switch` —— 查看/切换成员权限预设：
 
