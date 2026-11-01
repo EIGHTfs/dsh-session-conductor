@@ -12,6 +12,7 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 | 自动续跑 | 识别非人为中断并继续原任务，失败 30s 重试 | 面板逐会话开关 |
 | 会话分组 | 按工作区分组显示；分组下新建会话 | 设置 → 插件 → 会话分组 |
 | 撤回最后一条消息 | 删除最后一条用户消息及整轮回复（预览 + 二次确认 + 备份） | 面板按钮 |
+| 撤销到指定消息 | 撤销某条用户消息及其后全部内容：支持按 seq / 时间 / 文本定位，自动回退到回合边界，带备份与投影缓存清理 | `POST /api/session-conductor/undo-message` |
 | 损坏修复 | seq-gap / EIO 坏块 / 双格式 / zstd 帧级损坏 四类 | 面板「说明」页 + `/repair` 系列 |
 | 价值分析 | LLM 给会话分类（已完成/未完成/久未活跃/活跃中） | 面板按钮 |
 | 全文搜索 | FTS5 优先，内置 zstd 扫描兜底 | 面板搜索框 |
@@ -129,6 +130,7 @@ read_member_trace({ session: "writer", detail: "full" })
 | `/archive` `/restore` | POST | 归档 / 恢复会话 |
 | `/delete` | POST | 删除会话（拒绝运行中） |
 | `/undo` | POST | 撤回最后一条消息 |
+| `/undo-message` | POST | 撤销到指定位置：`{sessionId, atSeq?\|atTime?\|matchText?, dryRun?}`；都不给 = 撤回最后一条 |
 | `/auto-rename` `/auto-continue` | POST | 两个逐会话开关 |
 | `/auto-continue-gate` | GET/POST | 全局续跑闸门 |
 | `/release` | POST | 释放空闲会话 |
