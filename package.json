@@ -4,11 +4,6 @@
   "description": "DSH session management enhancement: archive/restore sessions, batch & conditional delete, AI auto-rename, interrupted-session auto-resume, release idle sessions, workspace grouping, undo last message, repair damaged session logs, value analysis, full-text search, per-member model switching (list_models / set_member_model), and plan/closing template injection (system-prompt + context).",
   "type": "module",
   "main": "lib/index.js",
-  "scripts": {
-    "test": "node test/run-all.mjs",
-    "test:unit": "node test/run-all.mjs --unit",
-    "test:api": "node test/run-all.mjs --api"
-  },
   "exports": {
     ".": {
       "default": "./lib/index.js"
@@ -23,12 +18,6 @@
     "skills",
     "cordis.patch.yml"
   ],
-  "license": "MIT",
-  "author": "EIGHTfs",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/EIGHTfs/dsh-session-conductor.git"
-  },
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -47,6 +36,32 @@
     "repair",
     "template-injection"
   ],
+  "license": "MIT",
+  "scripts": {
+    "test": "node test/run-all.mjs",
+    "test:unit": "node test/run-all.mjs --unit",
+    "test:api": "node test/run-all.mjs --api"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": ">=0.2.1-alpha.2",
+    "@deepseek-ai/dsh-session-title": ">=0.2.1-alpha.2",
+    "@deepseek-ai/dsh-storage-domain": ">=0.2.1-alpha.2",
+    "@deepseek-ai/schemastery": ">=3.18.5-alpha.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-session-title": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-storage-domain": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -65,5 +80,10 @@
       "./skills/task-completion-report.md",
       "./skills/dsh-session-official-doc.md"
     ]
+  },
+  "author": "EIGHTfs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EIGHTfs/dsh-session-conductor.git"
   }
 }
