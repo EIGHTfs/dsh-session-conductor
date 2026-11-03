@@ -44,7 +44,7 @@ test('toArgumentsString：缺字段与 NaN 如实拒绝，不硬造内容', () =
   assert.equal(toArgumentsString(Number.NaN).ok, false);
 });
 
-test('findToolCallArgumentIssues：只挑出非字符串的 tool-call 块', () => {
+test('findToolCallArgumentIssues：同时报助手侧与调用侧，且不误报 tool/result', () => {
   const events = [
     assistantWith({ command: 'ls' }),          // 坏：对象
     { type: 'assistant/message', seq: 29, data: { message: { role: 'assistant', content: [
@@ -63,6 +63,14 @@ test('findToolCallArgumentIssues：只挑出非字符串的 tool-call 块', () =
   assert.equal(issues[0].name, 'bash');
   assert.equal(issues[0].shape, 'object');
   assert.equal(issues[0].callId, 'call_1');
+  assert.equal(issues[0].where, 'assistant/message');
+  // 追加一条调用侧坏块：必须一起被查出来，否则漏修会变成 corrupt
+  const withCall = findToolCallArgumentIssues([
+    { type: 'tool/call', seq: 32, data: { callId: 'call_9', name: 'bash', arguments: { a: 1 } } },
+  ]);
+  assert.equal(withCall.length, 1);
+  assert.equal(withCall[0].where, 'tool/call');
+  assert.equal(withCall[0].callId, 'call_9');
 });
 
 test('findToolCallArgumentIssues：null / 数组 也识别为坏形态并标明形状', () => {
@@ -100,4 +108,45 @@ test('repairToolCallArguments：缺字段的块跳过并如实记录原因', () 
   assert.equal(fixes.length, 0);
   assert.equal(skipped.length, 1);
   assert.match(skipped[0].reason, /缺失/);
+});
+
+// ── 两侧一致性（宿主加载时严格比较 assistant 声明与 tool/call 事件）──────────
+//
+// 实测事故：只改助手侧会让日志变成 corrupt —— 宿主的 relationships 校验用
+// `pending.arguments !== data.arguments` 严格比较，两侧必须逐字符相同。
+
+/** 一条 tool/call 事件（实际发起的调用）。 */
+function toolCallEvent(callId, name, argumentsValue, seq = 29) {
+  return { type: 'tool/call', seq, time: 2, data: { turn: 1, step: 1, callId, name, arguments: argumentsValue } };
+}
+
+test('两侧都是对象时，一并改成同一个字符串', () => {
+  const assistant = assistantWith({ command: 'ls' });          // seq=28, callId=call_1
+  const call = toolCallEvent('call_1', 'bash', { command: 'ls' });
+  const { events, fixes } = repairToolCallArguments([assistant, call]);
+  const blockArgs = events[0].data.message.content[1].arguments;
+  const callArgs = events[1].data.arguments;
+  assert.equal(blockArgs, '{"command":"ls"}');
+  assert.equal(callArgs, '{"command":"ls"}');
+  assert.equal(blockArgs, callArgs, '两侧必须逐字符相同');
+  assert.equal(fixes.filter((f) => f.where === 'assistant/message').length, 1);
+  assert.equal(fixes.filter((f) => f.where === 'tool/call').length, 1);
+});
+
+test('助手侧已是字符串、调用侧仍是对象时，用助手侧的值对齐', () => {
+  const assistant = assistantWith('{"command":"pwd"}');        // 已合规
+  const call = toolCallEvent('call_1', 'bash', { command: 'pwd' });
+  const { events, fixes } = repairToolCallArguments([assistant, call]);
+  assert.equal(events[1].data.arguments, '{"command":"pwd"}', '应对齐到助手侧同一个字符串');
+  assert.equal(fixes.length, 1);
+  assert.equal(fixes[0].where, 'tool/call');
+});
+
+test('两侧都合规时不产生任何改动', () => {
+  const assistant = assistantWith('{"a":1}');
+  const call = toolCallEvent('call_1', 'bash', '{"a":1}');
+  const { events, fixes } = repairToolCallArguments([assistant, call]);
+  assert.equal(fixes.length, 0);
+  assert.equal(events[0], assistant, '无坏块时保持原引用');
+  assert.equal(events[1], call);
 });
