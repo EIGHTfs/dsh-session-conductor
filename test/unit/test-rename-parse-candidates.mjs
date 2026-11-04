@@ -37,10 +37,11 @@ test('字符串值里的花括号不干扰平衡计数', () => {
     { changed: true, title: '含 { 与 } 的标题' });
 });
 
-test('resolveAnalysisMaxTokens：缺省 2048；0/负数=不限制(undefined)；正数取整；非法回默认', () => {
-  assert.equal(resolveAnalysisMaxTokens(undefined), 2048);
+test('resolveAnalysisMaxTokens：缺省=不限制(undefined)；正数才限制；0/负/非法=不限制', () => {
+  assert.equal(resolveAnalysisMaxTokens(undefined), undefined);
   assert.equal(resolveAnalysisMaxTokens(0), undefined);
   assert.equal(resolveAnalysisMaxTokens(-1), undefined);
+  assert.equal(resolveAnalysisMaxTokens('abc'), undefined);
   assert.equal(resolveAnalysisMaxTokens('4096'), 4096);
-  assert.equal(resolveAnalysisMaxTokens('abc'), 2048);
+  assert.equal(resolveAnalysisMaxTokens(2048), 2048);
 });
