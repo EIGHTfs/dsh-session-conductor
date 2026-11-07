@@ -76,8 +76,12 @@ const PART_ORDER = [
   "foundation/bootstrap.js",
   "foundation/styles.js",
   "foundation/list-cache.js",
+  // 未读判定（契约 §3.2：宿主只给时刻，客户端自算布尔）—— 面板行首圆点用
+  "foundation/unread.js",
   // components：面板组件（同属主插件 factory 闭包，按职责切分）
   "components/session-icon.js",
+  // 统计视图（契约 §3.1 / §4：纯 div 条形图 + 数字卡片）—— 面板第 6 个 tab 用
+  "components/stats-view.js",
   "components/panel.js",
   "components/settings.js",
   // 入口：主插件 apply 收尾 + exports（收尾由本脚本补）
