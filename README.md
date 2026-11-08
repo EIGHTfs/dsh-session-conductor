@@ -13,10 +13,9 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 | 会话分组 | 按工作区分组显示；分组下新建会话 | 设置 → 插件 → 会话分组 |
 | 撤回最后一条消息 | 删除最后一条用户消息及整轮回复（预览 + 二次确认 + 备份） | 面板按钮 |
 | 撤销到指定消息 | 撤销某条用户消息及其后全部内容：支持按 seq / 时间 / 文本定位，自动回退到回合边界，带备份与投影缓存清理 | `POST /api/session-conductor/undo-message` |
-| 损坏修复 | seq-gap / EIO 坏块 / 双格式 / zstd 帧级损坏 四类 | 面板「说明」页 + `/repair` 系列 |
+| 损坏修复 | 六类：会话结构校验 / zstd 帧级损坏 / seq 断裂 / EIO 坏块 / 双格式冲突 / 工具参数格式 | 面板「说明」页（统一入口：一键扫描 + 修复） |
 | 价值分析 | LLM 给会话分类（已完成/未完成/久未活跃/活跃中） | 面板按钮 |
 | 全文搜索 | FTS5 优先，内置 zstd 扫描兜底 | 面板搜索框 |
-| 压缩模型 | 上下文自动压缩使用独立模型 | 设置 → 插件 → 压缩模型 |
 | 模板注入 | 方案/收尾模板；本地文件、在线网址、目录浏览三种导入 | 设置 → 会话管理 |
 | 自动重命名模型 | 指定标题分析用的模型 | 设置 → 会话管理 |
 | 成员模型切换 | 切单个或全部成员的模型，可跟随主代理 | `/model-switch`、`set_member_model` |
@@ -78,6 +77,8 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 list_models({})                                    // 列出可用 provider 与模型 id
 set_member_model({ target, provider, model })      // 三者都可空：target 空=全部成员；provider/model 空=跟随我
 set_member_permission({ target, preset })          // 两者都可空：target 空=全部成员；preset 空=跟随我
+rename_session({ sessionId, title, analyze })    // 直接给会话改标题（不经分析模型）；
+                                                   // analyze:true = 跑一次自动重命名分析并返回真实原因
 list_permission_presets({})                        // 列出可选权限预设
 clone_member_as({ source, name, description, withHistory, provider, model, subagentProvider })
                                                    // source/name 必填；withHistory 默认 true（false=只建空成员）
@@ -127,17 +128,18 @@ read_member_trace({ session: "writer", detail: "full" })
 | 端点 | 方法 | 用途 |
 |---|---|---|
 | `/list` | GET | 会话列表；`?fromIndex=true` 读落盘索引秒回，`?job=1` 交给后台 job |
-| `/archive` `/restore` | POST | 归档 / 恢复会话 |
+| `/archive` `/unarchive` | POST | 归档 / 取消归档（恢复） |
 | `/delete` | POST | 删除会话（拒绝运行中） |
-| `/undo` | POST | 撤回最后一条消息 |
-| `/undo-message` | POST | 撤销到指定位置：`{sessionId, atSeq?\|atTime?\|matchText?, dryRun?}`；都不给 = 撤回最后一条 |
+| `/undo-message` | POST | 撤回最后一条消息或撤销到指定位置：`{sessionId, atSeq?\|atTime?\|matchText?, dryRun?}`；都不给 = 撤回最后一条 |
 | `/auto-rename` `/auto-continue` | POST | 两个逐会话开关 |
 | `/auto-continue-gate` | GET/POST | 全局续跑闸门 |
-| `/release` | POST | 释放空闲会话 |
+| `/detach` `/detach-all` | POST | 释放空闲会话（单个 / 全部） |
 | `/value-analysis` | POST | 价值分析 |
-| `/repair` `/repair-eio` `/repair-dual` | POST | 三类损坏修复 |
+| `/repair-kinds` | GET | 修复类型清单（前端据此渲染统一入口，新增类型只改后端注册表） |
+| `/repair-sessions` `/repair-frames` `/repair-seq-gap` | POST | 会话结构校验 / zstd 帧级损坏 / seq 断裂（`{dryRun:true}` 只扫） |
+| `/repair-eio` `/repair-dual-format` `/repair-arguments` | POST | EIO 坏块 / 双格式冲突 / 工具参数格式（同上） |
 | `/search` | GET | 全文搜索 |
-| `/compaction-model` `/auto-rename-model` | GET/POST | 两个模型设置 |
+| `/auto-rename-model` | GET/POST | 自动重命名模型设置 |
 | `/templates` `/templates/dir` | GET/POST | 模板注入与目录浏览 |
 | `/i18n` | GET | 语言包（zh/en） |
 

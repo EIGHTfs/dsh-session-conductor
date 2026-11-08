@@ -85,7 +85,6 @@ const PART_ORDER = [
   // 独立插件块（各自 ModuleLoader.load，独立闭包互不影响）
   "components/group.js",
   "components/processing.js",
-  "components/compaction.js",
   "components/conductor-settings.js",
 ];
 
