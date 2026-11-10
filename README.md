@@ -13,7 +13,7 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 | 会话分组 | 按工作区分组显示；分组下新建会话 | 设置 → 插件 → 会话分组 |
 | 撤回最后一条消息 | 删除最后一条用户消息及整轮回复（预览 + 二次确认 + 备份） | 面板按钮 |
 | 撤销到指定消息 | 撤销某条用户消息及其后全部内容：支持按 seq / 时间 / 文本定位，自动回退到回合边界，带备份与投影缓存清理 | `POST /api/session-conductor/undo-message` |
-| 损坏修复 | 六类：会话结构校验 / zstd 帧级损坏 / seq 断裂 / EIO 坏块 / 双格式冲突 / 工具参数格式 | 面板「说明」页（统一入口：一键扫描 + 修复） |
+| 损坏修复 | 七类：会话结构校验 / zstd 帧级损坏 / seq 断裂 / EIO 坏块 / 双格式冲突 / 工具参数格式 / 缺失附件引用 | 面板「说明」页（统一入口：一键扫描 + 修复） |
 | 价值分析 | LLM 给会话分类（已完成/未完成/久未活跃/活跃中） | 面板按钮 |
 | 全文搜索 | FTS5 优先，内置 zstd 扫描兜底 | 面板搜索框 |
 | 模板注入 | 方案/收尾模板；本地文件、在线网址、目录浏览三种导入 | 设置 → 会话管理 |
@@ -138,6 +138,7 @@ read_member_trace({ session: "writer", detail: "full" })
 | `/repair-kinds` | GET | 修复类型清单（前端据此渲染统一入口，新增类型只改后端注册表） |
 | `/repair-sessions` `/repair-frames` `/repair-seq-gap` | POST | 会话结构校验 / zstd 帧级损坏 / seq 断裂（`{dryRun:true}` 只扫） |
 | `/repair-eio` `/repair-dual-format` `/repair-arguments` | POST | EIO 坏块 / 双格式冲突 / 工具参数格式（同上） |
+| `/repair-attachments` | POST | 缺失附件引用：`{sessionId?, dryRun?}`；不给 sessionId 时全库扫描，非 dryRun 逐个把缺失附件块替换成文本占位 |
 | `/search` | GET | 全文搜索 |
 | `/auto-rename-model` | GET/POST | 自动重命名模型设置 |
 | `/templates` `/templates/dir` | GET/POST | 模板注入与目录浏览 |
