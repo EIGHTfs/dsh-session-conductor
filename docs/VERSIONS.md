@@ -5,6 +5,7 @@
 
 | 版本 | 内容 |
 |------|------|
+| 1.4.29 | **前端挂载第二批：统计 tab**（面板第 6 个标签页）。四个数字卡（会话总数 / 活跃 / 已归档 / 日志体积，体积未知时显示「未知」不显示 0）+ 工作区分布（前 8，字符条按最大值归一化）+ 近 14 天活跃（字符条）+ 体积榜 Top 10。数据全部来自 `GET /stats`，前端只做布局不重算；切到该 tab 时拉一次，离开不清空。i18n 中英各 12 键。 |
 | 1.4.28 | **日志信息改为自绘浮层（替代原生 alert）+ 新增下载日志**。点「日志目录」不再弹 `window.alert`，改为面板内自绘浮层：显示完整路径（可选中）、三个动作、关闭。① **复制路径**（Clipboard API，失败不静默）；② **在服务器打开**（如实呈现结果）；③ **下载日志**（新增 `GET /download-log?sessionId=`，流式返回 `.jsonl.zstd`，与 open-log-dir 共用同一套定位与越界校验）。同时修掉「opened 说谎」的缺陷：新增 `hasDesktopSession()`——Linux 必须有 `DISPLAY`/`WAYLAND_DISPLAY` 才算有桌面会话，headless 服务器直接返回 `opened:false` 并提示「无桌面环境，请复制路径或下载」，不再假装已打开。tab 文案「全部会话」改为「全部（n）」，与其余 tab 的计数口径一致。 |
 | 1.4.27 | **前端挂载第一批：会话行加「日志目录」按钮**。点击调 `POST /open-log-dir`（前端只传 sessionId，路径校验在后端）；成功提示已打开并显示目录，自动拉起失败时提示目录供手动复制（`opened` 只代表拉起动作已发出）。i18n 中英各 4 键。渲染验证：preview 挂真实 client.js + 真实后端，确认 169 条会话每行都渲染出该按钮、title 正确（预览环境无语言包，文案显示为 key，属预期）。 |
 | 1.4.26 | **会话统计（纯后端，前端零改动）**。新增 `GET /stats` → `{totals, byWorkspace, activity, largest}`：会话总数 / 活跃 / 归档 / 在线、日志体积合计、按工作区分布（注册表 `sessionIds` 优先、`cwd` 最长前缀兜底）、近 14 天活跃度、体积榜前 10。聚合逻辑全在零依赖叶子 `lib/features/stats-aggregate.js`（取数链路会经 `sessions/list.js` 拉起 `domain`，单测环境没有该可选 peer，不拆就 import 不进来）。体积语义：**拿不到就是 `null` 不是 `0`**（0 会被读成「日志是空的」），部分缺失时给总和但 `bytesComplete: false`。实现中确认宿主 `persistence.list()` 确实提供 `sizeBytes`（隔离实例实测 `bytesComplete: true`）。另修掉一处环境坑：宿主 Node 为 small-icu，`toLocaleDateString('sv-SE')` 退化成 `11/14/2026`，日期键改为手写补零。12 项单测 + 隔离实例实测（结构与数值均校验）。 |
