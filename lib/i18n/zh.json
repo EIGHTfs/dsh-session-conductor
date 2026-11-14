@@ -183,7 +183,9 @@
     "help.repairAll.desc": "一次性检查会话日志的六类问题：会话结构校验、zstd 帧级损坏、seq 断裂、EIO 坏块、明文与压缩双格式冲突、工具调用参数格式。先扫描（不改动任何文件）再把有问题的一次修完，可安全重复执行。",
     "repairAll.scanClean": "六类检查全部通过，未发现需要修复的问题",
     "repairAll.confirm": "共 {n} 处问题（{detail}），是否全部修复？",
-    "repairAll.done": "已修复 {n} 处，{failed} 项失败或跳过"
+    "repairAll.done": "已修复 {n} 处，{failed} 项失败或跳过",
+    "action.markAllRead": "全部已读",
+    "unread.dotHint": "未读：点一下标为已读"
   },
   "sessionGroup": {
     "title": "会话分组",

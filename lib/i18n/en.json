@@ -183,7 +183,9 @@
     "help.repairAll.desc": "One pass over six kinds of session-log problems: structure validation, zstd frame corruption, seq gaps, EIO bad blocks, plain-vs-compressed dual-format conflicts, and tool argument format. It scans first (touching nothing) and then repairs everything that is broken. Safe to re-run.",
     "repairAll.scanClean": "All six checks passed, nothing to repair",
     "repairAll.confirm": "{n} issues found ({detail}). Repair all of them?",
-    "repairAll.done": "Repaired {n} issue(s), {failed} failed or skipped"
+    "repairAll.done": "Repaired {n} issue(s), {failed} failed or skipped",
+    "action.markAllRead": "Mark all read",
+    "unread.dotHint": "Unread — click to mark read"
   },
   "sessionGroup": {
     "title": "Session Groups",
