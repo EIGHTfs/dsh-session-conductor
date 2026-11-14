@@ -74,16 +74,24 @@
 - **待验证**：以上为静态读源码结论，写后端前在隔离实例用真实 `workspaceRegistry` 跑一次确认（尤其失败时的错误对象结构）。
 - **风险**：分组口径若改成「注册表优先」，需确认不会影响现有按 cwd 分组的面板视图。
 
-### 5. 分支到新对话 fork（第二批，需先实测）
+### 5. 分支到新对话 fork（第二批，探针已做 → **不做**）
 
-- **目的**：从某条会话分出分支继续探索，不污染原线。
-- **接口**：
-  - `GET /forked` → `{ ok, forkOf: { [childId]: sourceId } }`
-  - `POST /forked` `{ childId, sourceId }` → 记录派生关系
-  - fork 动作本身走宿主原生 `sessions.fork`
-- **设计取舍（沿用）**：**派生关系记录失败不阻断 fork**（宿主 fork 已成功，回 200 + `ok:false` + `RECORD_FAILED`）。
-- **域改动**：仅新增带默认值的 `forkOf` 字段，不升 domain version（纯加默认值，老数据照读）。
-- **待验证**：`sessions.fork` 在当前主干的参数与返回结构；fork 后的会话落在哪个工作区、标题如何处理。
+- **宿主语义**（`sessionController.fork({sessionId, atSeq?})`）：
+  - 不给 `atSeq` → 取 `latestCompletedPrefixBoundary`（最近一个**完整回合**的边界）；给了则必须是已存在事件且落在完整回合边界，否则 `session/fork-unavailable`
+  - 种子构造 `buildForkSeed(events, boundary)`：复制 `events[0..boundary]` + 追一条 `session/end-seed {inherited:true}` + 用 `persisted`→`forked` 原因闭合未完成回合（有副作用的工具调用会插入「先核实外部状态再决定是否重试」的提示）
+  - 子会话：新 id、`isSeeded: true`、沿用源会话 `cwd` / `agentPreset` / 所在工作区，采用**当前默认模型**
+- **DSH GUI 已有该能力**：侧边栏注入 `forkSession`（埋点 `click_position: "sidebar"`）、标题自动递增（`increaseTitle: true`）、`session/migration-required` 有引导提示。
+- **结论：不做**。插件重复实现只会与官方入口争夺同一能力，没有增量价值。
+
+### 6. 结论：五项里只有三项是真缺口
+
+| 能力 | 判定 |
+|---|---|
+| 打开日志目录 | ✅ 真缺口，已做（1.4.24） |
+| 未读标记 | ✅ 真缺口，已做（1.4.25） |
+| 会话统计 | ✅ 真缺口，已做（1.4.26） |
+| 拖拽排序 | ❌ 不做：组内顺序 GUI 用浏览器本地状态、跨组受 cwd 限制、仅剩工作区排序且 GUI 本就能拖 |
+| 分支对话 fork | ❌ 不做：DSH GUI 自带 |
 
 ## 三、实施顺序（按依赖排，含注意事项）
 
@@ -97,10 +105,10 @@
 | 4 | `stats` 后端 | 纯聚合拆成零依赖叶子；`sizeBytes` 拿不到时整体退化为 `null`，**不能写 0**（0 会被读成「日志是空的」） | 可并行 | ✅ 1.4.26 |
 | 5 | `stats` 实测 | 有数据 / 无数据 / 接口失败三态都不能白屏 | 4 | ✅ 已验（结构+数值；宿主确实提供 sizeBytes） |
 | 6 | 固化「测试环境安装三步」 | 见下方专节 | — | 待做 |
-| 7 | `reorder` 探针 | 实测 `workspaceRegistry.insertBefore` 的语义与失败表现，**先探针再写** | — | 待做 |
-| 8 | `reorder` 后端 | 排序不自存，转发注册表；分组口径改「注册表 `sessionIds` 优先，cwd 兜底」 | 7 | 待做 |
-| 9 | `fork` 探针 | 实测 `sessions.fork` 参数与返回、fork 后落在哪个工作区 | — | 待做 |
-| 10 | `fork` 后端 | 派生关系记录失败不阻断（200 + `ok:false` + `RECORD_FAILED`） | 9 | 待做 |
+| 7 | `reorder` 探针 | 实测 `workspaceRegistry.insertBefore` 的语义与失败表现，**先探针再写** | — | ✅ 已探（见 2.4） |
+| 8 | `reorder` 后端 | 探针结论：**不做**。组内会话顺序 GUI 读的是浏览器本地 `sessionOrderByAccount`，服务端 `insertSessionBefore` 不被读取（做了会「拖了没反应」）；跨组受 `attachSession` 强制 `cwd === workspace.path` 限制；仅剩「工作区排序」一项，而 GUI 侧边栏本来就能拖 | 7 | ❌ 不做 |
+| 9 | `fork` 探针 | `sessions.fork({sessionId, atSeq?})`：复制到「完整回合边界」的历史 + `session/end-seed(inherited)` + 用 `forked` 原因闭合未完成回合；沿用源会话 cwd / agentPreset / 工作区，用当前默认模型；错误码 `session/not-found` / `session/fork-unavailable` | — | ✅ 已探 |
+| 10 | `fork` 后端 | **不做**。DSH GUI 自带该能力：侧边栏注入 `forkSession`（`click_position: "sidebar"`）、标题递增、`session/migration-required` 引导；插件再做属重复实现 | 9 | ❌ 不做 |
 | 11 | 前端挂载 | 五项 UI 一次性接入 `renderRow*` 现有结构 | 2/4/8/10 | 待做 |
 | 12 | 收尾 | 主实例重启验证 + 是否发 npm | 全部 | 待做 |
 
