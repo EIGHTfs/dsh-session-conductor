@@ -89,8 +89,8 @@
 | 1 | `open-log-dir` 后端 | 路径安全三层（只收 sessionId / 白名单 / realpath 前缀）；安全判定放零依赖叶子 `lib/shared/path-guard.js`，否则被宿主 peer 拉住无法单测 | — | ✅ 1.4.24 |
 | 2 | `unread` 后端 | **只存 readAt 不存布尔位**；`index-store` 的 `normalizeStore` 是白名单重建，必须同步 `emptyStore()`，否则重启静默丢数据 | 1 | ✅ 1.4.25 |
 | 3 | `unread` 实测 | 读 / 标记 / 全部已读 / **重启后数据仍在**（这条专门守第 2 项的坑） | 2 | ✅ 已验（重启后 entries + allReadAt 完好） |
-| 4 | `stats` 后端 | 纯聚合拆成零依赖叶子；`sizeBytes` 拿不到时整体退化为 `null`，**不能写 0**（0 会被读成「日志是空的」） | 可并行 | 待做 |
-| 5 | `stats` 实测 | 有数据 / 无数据 / 接口失败三态都不能白屏 | 4 | 待做 |
+| 4 | `stats` 后端 | 纯聚合拆成零依赖叶子；`sizeBytes` 拿不到时整体退化为 `null`，**不能写 0**（0 会被读成「日志是空的」） | 可并行 | ✅ 1.4.26 |
+| 5 | `stats` 实测 | 有数据 / 无数据 / 接口失败三态都不能白屏 | 4 | ✅ 已验（结构+数值；宿主确实提供 sizeBytes） |
 | 6 | 固化「测试环境安装三步」 | 见下方专节 | — | 待做 |
 | 7 | `reorder` 探针 | 实测 `workspaceRegistry.insertBefore` 的语义与失败表现，**先探针再写** | — | 待做 |
 | 8 | `reorder` 后端 | 排序不自存，转发注册表；分组口径改「注册表 `sessionIds` 优先，cwd 兜底」 | 7 | 待做 |
