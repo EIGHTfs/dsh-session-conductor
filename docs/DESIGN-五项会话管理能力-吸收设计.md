@@ -58,16 +58,21 @@
 - **依赖**：`sessionPersistence.list()` 的 `sizeBytes`（已验证当前版本存在）。
 - **验收**：无数据/接口失败/加载中三个态不白屏；`sizeBytes` 缺失时显示"未知"而非 0。
 
-### 4. 拖拽排序（第二批，需先实测）
+### 4. 拖拽排序（第二批，探针已做）
 
-- **目的**：拖分组标题改工作区顺序；把会话拖进别组。
+- **目的**：拖分组标题改工作区顺序；组内拖会话改顺序；跨组拖动改归属。
 - **接口**：`POST /reorder` `{ kind, id?, beforeId?, sessionId?, workspaceId? }`
   - 工作区排序 → 返回 `{ ok, order: [...] }`
   - 会话排序 / 移组 → 返回 `{ ok, sessionIds: [...] }`
 - **设计取舍（沿用）**：**排序不自存**，直接转发 `workspaceRegistry.insertBefore` / `Workspace.insertSessionBefore`；插件自己存一份顺序必然与官方侧边栏打架。
-- **分组口径必须改**：改成「注册表 `sessionIds` 优先，cwd 最深祖先兜底」。会话 cwd 不可变，只按 cwd 分桶的话，"拖进别组"刷新一次就弹回原组。
-- **待验证**：`workspace/workspace` 的 `insertBefore` 在当前主干的实际语义（返回结构、失败表现、是否持久化）。
-- **风险**：改动会影响现有分组渲染（`group/list` 与面板分组视图），回归面较大。
+- **宿主接口实测（静态读 `packages/workspace/workspace/lib/index.js`）**：
+  - `registry.insertBefore(id, beforeId?)`：DOM insertBefore 语义，锚点缺省即追加末尾；两侧 id 都必须存在（否则 `WorkspaceOrderInvalidError`）；位置不变时幂等返回、不写盘；返回完整顺序并持久化。
+  - `workspace.insertSessionBefore(sessionId, beforeSessionId?)`：**只允许同组内移动**——校验 session 必须在该组 `sessionIds` 里，否则 `WorkspaceMoveInvalidError`。
+  - `workspace.attachSession(sessionId)`：**强制校验 `cwd === workspace.path`**（源码 `if (cwd !== this.record.path) throw`），且 cwd 必须可 realpath、必须是目录。
+- **⚠️ 由此推翻一个设计假设**：PR 的「把会话拖进别组」靠 `源 detachSession + 目标 attachSession`，但 `attachSession` 要求会话 cwd 恰好等于目标组路径。会话 cwd 是创建时定死的，所以**跨组拖拽在多数场景会直接失败**（抛 cwd 不匹配），不是实现瑕疵，是宿主硬约束。
+  - 结论：这一批只做「工作区排序 + 组内会话排序」；跨组拖拽暂不做。若将来要做，得先让宿主支持"显式归属覆盖"，属契约变更。
+- **待验证**：以上为静态读源码结论，写后端前在隔离实例用真实 `workspaceRegistry` 跑一次确认（尤其失败时的错误对象结构）。
+- **风险**：分组口径若改成「注册表优先」，需确认不会影响现有按 cwd 分组的面板视图。
 
 ### 5. 分支到新对话 fork（第二批，需先实测）
 
