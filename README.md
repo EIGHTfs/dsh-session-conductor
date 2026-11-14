@@ -161,3 +161,4 @@ curl -X POST http://<host>/api/session-conductor/archive \
 - [版本列表](docs/VERSIONS.md) — 按 git 提交聚合的版本记录
 - [函数列表](docs/FUNCTIONS.md) — lib/ 导出函数的名称/位置/签名
 - [模型与权限切换机制](docs/模型与权限切换机制.MD) — 子代理切换的实现依据与内部机制
+- [五项会话管理能力：吸收设计](docs/DESIGN-五项会话管理能力-吸收设计.md) — 外部提交的五项能力（打开日志目录 / 未读 / 统计 / 拖拽排序 / fork）的设计取舍、接口契约与分批吸收计划
