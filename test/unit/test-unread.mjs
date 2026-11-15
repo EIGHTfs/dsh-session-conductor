@@ -128,8 +128,14 @@ test('标记不传 at 时用当前时间；空 sessionId 不改动任何数据',
   });
 });
 
-test('索引不可用（无 DSH_HOME）时退回空快照，不抛', () => {
-  const original = process.env.DSH_HOME;
+test('索引路径不可解析时退回空快照，不抛', () => {
+  // ⚠️ 只清空 DSH_HOME 是不够的：resolveDshHome 会回落到 `$HOME/.dsh`，
+  // 那是**真实实例的数据目录**——测试会读到用户的实际未读状态（曾经因此误判成失败）。
+  // 必须把 HOME 也指向空沙箱，回落目标才真的不存在。
+  const originalHome = process.env.HOME;
+  const originalDshHome = process.env.DSH_HOME;
+  const sandbox = mkdtempSync(join(tmpdir(), 'dsh-unread-nohome-'));
+  process.env.HOME = sandbox;
   process.env.DSH_HOME = '';
   resetStoreForTest();
   try {
@@ -137,7 +143,9 @@ test('索引不可用（无 DSH_HOME）时退回空快照，不抛', () => {
     assert.deepEqual(snap.entries, {});
     assert.equal(snap.allReadAt, 0);
   } finally {
-    process.env.DSH_HOME = original;
+    process.env.HOME = originalHome;
+    process.env.DSH_HOME = originalDshHome;
     resetStoreForTest();
+    rmSync(sandbox, { recursive: true, force: true });
   }
 });
