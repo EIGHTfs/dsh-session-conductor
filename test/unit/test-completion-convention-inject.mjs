@@ -100,7 +100,10 @@ test('lib 内「跨模块导出被引用但没导入」必须为 0（本次事�
 
   const missing = [...exported].filter((n) => {
     if (named.has(n) || declared.has(n)) return false;
-    return new RegExp(`(?<!\\.)\\b${n}\\b`).test(ap); // 裸标识符用法（排除 ns.xxx 成员访问）
+    // 先剔除「对象键名」位置（`{ foo: ... }` / 行首 `foo:`）：键名不是引用，
+    // 否则 `relayNodeName: config.relayNodeName` 这类配置映射会被误判成漏导入。
+    const withoutKeys = ap.replace(new RegExp(`(?:^|[{,])\\s*${n}\\s*:`, 'gm'), '');
+    return new RegExp(`(?<!\\.)\\b${n}\\b`).test(withoutKeys); // 裸标识符用法（排除 ns.xxx 成员访问）
   });
   assert.deepEqual(missing, [], `apply.js 引用了但没导入（运行时会 ReferenceError）：${missing.join(', ')}`);
 });
