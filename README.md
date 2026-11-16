@@ -25,7 +25,7 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 | 指定模型新建会话 | 新建会话并直接指定 provider/model | `create_session` |
 | 记忆取回 | 上下文用量骤降时自动回注最近几轮对话 | 自动注入 + `recall_memory` |
 | 上下文用量 | 查自己会话的占用与构成 | `context_usage` |
-| 跨会话消息 | 给另一个会话发消息，空闲时自动唤醒 | `list_sessions`、`send_to_session` |
+| 跨会话消息 | 给另一个会话发消息，空闲时自动唤醒；**指定 ip 可跨机投递** | `list_sessions`、`send_to_session`、`POST /api/session-conductor/message` |
 | 成员轨迹 | 读子代理的完整执行过程：思考、正文、工具调用与结果 | `read_member_trace` |
 
 ## 环境要求
@@ -139,6 +139,10 @@ read_member_trace({ session: "writer", detail: "full" })
 | `/repair-sessions` `/repair-frames` `/repair-seq-gap` | POST | 会话结构校验 / zstd 帧级损坏 / seq 断裂（`{dryRun:true}` 只扫） |
 | `/repair-eio` `/repair-dual-format` `/repair-arguments` | POST | EIO 坏块 / 双格式冲突 / 工具参数格式（同上） |
 | `/repair-attachments` | POST | 缺失附件引用：`{sessionId?, dryRun?}`；不给 sessionId 时全库扫描，非 dryRun 逐个把缺失附件块替换成文本占位 |
+| `/message` | POST | 跨会话投递：`{targetSessionId, message, fromSessionId?, ip?}`；**省略 ip = 本机投递（旧行为），填 `10.0.0.5:30800` = 转发到对端** |
+| `/relay/info` | GET | 对端有哪些会话（供选目标），受来源 IP 白名单限制 |
+| `/relay/message` | POST | 接收对端投递：`{sessionId, message, fromLabel?, fromSessionId?}`，来源 IP 必须在白名单内 |
+| `/relay/peek` | GET | 拉对端的 `/relay/info`：`?target=10.0.0.5:30800` |
 | `/search` | GET | 全文搜索 |
 | `/auto-rename-model` | GET/POST | 自动重命名模型设置 |
 | `/templates` `/templates/dir` | GET/POST | 模板注入与目录浏览 |
