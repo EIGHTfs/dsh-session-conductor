@@ -102,11 +102,21 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 | 双格式（encodingMismatch） | 会话列表整体失败、侧边栏会话全消失（listArtifacts 抛 "uses .jsonl, but backend configured for zstd"） | `repair-dual-format`（纯磁盘级扫描旁路 persistence：同目录并存 session.jsonl + session.jsonl.zstd 时把明文移入 .dual-format-backup/ 保留 zstd 官方格式，live 会话跳过） | lib/repair.js |
 | zstd 帧损坏 | 解码失败 | `repair-sessions` 兜底帧修复 | lib/zstd-frames.js |
 
-## 七、模板注入（ 新增 /  强制门禁）
+## 七、模板注入（强制门禁）
 
-- 两个固定槽位：`plan`（方案模板——修改代码前先出提案）/ `closing`（收尾模板——任务完成汇报格式）。三种来源：上传本地 md、在线 md 网址（下载转存正文）、DSH 目录内浏览选用。开启后经 systemPrompt section「session-templates」（order 945）注入，AI 一开始就看见约定。设置 → 会话管理 → 模板注入。
+- **单一槽位** `plan`（方案模板——修改代码前先出提案）。收尾格式不在这里：它由 `skills/task-completion-report.md` 经 systemPrompt section「task-completion-report」（order 1000）常驻注入，与模板槽位互不重复。三种来源：上传本地 md、在线 md 网址（下载转存正文）、DSH 目录内浏览选用。
+- **默认模板**：未上传任何内容时，开启注入即用插件内置的 `skills/plan-template-compact.md`（精简版，保留全部约束与门禁锚点）；上传后以用户模板为准，清空则退回内置默认。
+- **注入时机**：`agent/pre-step`，每个 agent 首次 step 注入一次，作为一条 user 消息（`source.form = "instructions"`）进上下文。不是每步都注入，也不写系统提示词。改动即时生效（`templateStateCache` 热更新），下一回合可见。
 - API：GET /api/session-conductor/templates；POST {slot, name, content} / {slot, url} / {slot, enabled} / {slot, action:"remove"} / {slot, action:"pickPath", path} / **{slot:'plan', enforce}**。
-- ** 强制门禁**：`plan.enforce=true` 时，未按方案模板出提案并获用户「确认」前，代码修改类工具调用被 `tools/pre-execute` waterfall 直接拒绝（`{kind:'deny'}`），拒绝理由指导 AI 先出提案。
+- **强制门禁原理（无状态判定）**：`plan.enforce=true` 时，`tools/pre-execute` waterfall 在每次代码修改类工具调用前**现场从会话事件流推导**门状态，不存任何标志位（重启零恢复问题）：
+  1. 从事件流末尾向前扫，取**最后一条真人用户消息**（跳过 `Current runtime context` / `The user said` / `<system-reminder>` / `【dsh-` / `🔑` 开头的系统注入）；
+  2. 收集该消息**之前**的 AI 输出文本；
+  3. **提案成立** = 这些 AI 输出里同时含「标题锚点」（`修改方案提案` 或 `门禁表`）**且**含「确认段锚点」（`是否执行` / `请回复确认` / `确认或修改方案` / `等待…确认`）；
+  4. **确认成立** = 最后那条真人消息命中确认词（严格式整条仅「确认/同意/OK」；宽松式含「确认/同意/按方案执行/执行吧/go ahead」）；
+  5. 两者同时成立才放行，否则 `{kind:'deny'}`。
+  - 锚点**一律不锁章节号**（模板改版时章节号会漂移，锁死会导致「照模板写也过不了」的永久拒绝，2026-10-15 实测踩过）。
+  - 子 agent 会话（`delegationDepth > 0`）豁免：子 agent 无法与用户交互确认；主会话是强制点。
+  - 门禁自身异常 fail-open（放行并留痕），不阻断工具链。
   - 拦的工具：edit / write / apply（全拦）+ bash 写操作启发式（`>`/`>>` 重定向、sed -i、rm、mv、cp、tee、mkdir、touch、chmod/chown、git commit/reset/checkout --、patch、truncate、dd）。只读工具（read/grep/glob）永不拦。
   - 门判定**无状态**：每次拦截从会话事件流现场推导——「提案」= 确认消息之前那一段 AI 输出同时含**标题锚点**（`修改方案提案` 或 `门禁表`）+ **确认段锚点**（`是否执行` / `请回复确认` / `确认或修改方案` / `等待…确认`（正则））双标记，**两个锚点都不含章节号**（模板章节号会改版，锚点写死章节号会让门禁在模板改版后永久拒绝所有编辑——2026-10-15 实测踩过）；「确认」= 最后一条**真人**用户消息命中确认词（严格式：整条仅确认词如 确认/同意/OK；宽松式：含 确认/同意/按方案执行/执行吧/go ahead）。系统注入消息（Current runtime context / The user said / <system-reminder> / 【dsh- / 🔑）自动跳过。
   - 无状态的好处：重启零恢复问题，门状态永远由真实对话记录决定，不与内存缓存打架。

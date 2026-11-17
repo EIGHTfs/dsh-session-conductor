@@ -45,12 +45,11 @@ const PLAN = "# 方案模板\n\n## 一、修改目标\n（描述）";
 const CLOSING = "══════════\n✅ 任务完成\n交付：X\n验证：Y\n遗留：Z\n══════════";
 
 console.log('\n[1] 常量');
-await ok('两个槽位 plan/closing', () => {
-  assert.deepStrictEqual(TEMPLATE_SLOTS, ["plan", "closing"]);
+await ok('单一槽位 plan（收尾槽位已并入 systemPrompt 的收尾约定）', () => {
+  assert.deepStrictEqual(TEMPLATE_SLOTS, ["plan"]);
 });
-await ok('默认模板全关闭', () => {
+await ok('默认模板全关闭（开关默认不变）', () => {
   assert.strictEqual(TEMPLATE_DEFAULTS.plan.enabled, false);
-  assert.strictEqual(TEMPLATE_DEFAULTS.closing.enabled, false);
 });
 
 console.log('\n[2] saveTemplate（本地 md 落盘）');
@@ -67,14 +66,14 @@ await ok('非法槽位 → bad-slot', async () => {
   assert.strictEqual(r.error.code, "bad-slot");
 });
 await ok('空内容 → empty', async () => {
-  const r = await saveTemplate(ROOT, "closing", { name: "x.md", content: "" });
+  const r = await saveTemplate(ROOT, "plan", { name: "x.md", content: "" });
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.error.code, "empty");
 });
 
 console.log('\n[3] saveTemplateFromUrl（在线 md）');
 await ok('非法 URL → bad-url', async () => {
-  const r = await saveTemplateFromUrl(ROOT, "closing", "not-a-url");
+  const r = await saveTemplateFromUrl(ROOT, "plan", "not-a-url");
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.error.code, "bad-url");
 });
@@ -136,50 +135,51 @@ await ok('全部关闭 → 空串', () => {
   assert.strictEqual(collectTemplatesTextSync(ROOT, TEMPLATE_DEFAULTS), "");
 });
 await ok('plan 开启 → 注入方案模板', () => {
-  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, name: "方案.md" }, closing: TEMPLATE_DEFAULTS.closing };
+  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, name: "方案.md" } };
   const t = collectTemplatesTextSync(ROOT, meta);
   assert.ok(t.includes("方案模板"));
   assert.ok(t.includes(PLAN));
-  assert.ok(!t.includes("收尾模板"));
 });
-await ok('closing 开启 → 注入收尾模板', async () => {
-  await saveTemplate(ROOT, "closing", { name: "收尾.md", content: CLOSING });
-  const meta = { plan: TEMPLATE_DEFAULTS.plan, closing: { ...TEMPLATE_DEFAULTS.closing, enabled: true, name: "收尾.md" } };
+await ok('plan 开启但未上传模板 → 用内置默认模板兜底', async () => {
+  // 先清掉前面用例写入的 plan.md，否则 readTemplateSync 会读到它而不走兜底
+  await removeTemplate(ROOT, "plan");
+  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true } };
   const t = collectTemplatesTextSync(ROOT, meta);
-  assert.ok(t.includes("收尾模板"));
-  assert.ok(t.includes(CLOSING));
+  assert.ok(t.length > 0, '开启注入就应有内容（内置默认）');
+  assert.ok(t.includes("门禁表"), '默认模板须含门禁锚点');
+  assert.ok(t.includes("是否执行"), '默认模板须含确认段锚点');
 });
 await ok('双花括号清洗为单花括号', async () => {
-  await saveTemplate(ROOT, "closing", { name: "变量.md", content: "内容含 {{变量}} 双花括号" });
-  const meta = { plan: TEMPLATE_DEFAULTS.plan, closing: { ...TEMPLATE_DEFAULTS.closing, enabled: true, name: "变量.md" } };
+  await saveTemplate(ROOT, "plan", { name: "变量.md", content: "内容含 {{变量}} 双花括号" });
+  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, name: "变量.md" } };
   const t = collectTemplatesTextSync(ROOT, meta);
   assert.ok(!t.includes("{{"), "不应残留 {{");
   assert.ok(t.includes("{变量}"), "应有单花括号");
 });
-await ok('removeTemplate 清空 → 不再注入', async () => {
-  await removeTemplate(ROOT, "closing");
-  const meta = { plan: TEMPLATE_DEFAULTS.plan, closing: { ...TEMPLATE_DEFAULTS.closing, enabled: true, name: "收尾.md" } };
+await ok('removeTemplate 清空 → 退回内置默认（仍非空）', async () => {
+  await removeTemplate(ROOT, "plan");
+  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, name: "方案.md" } };
   const t = collectTemplatesTextSync(ROOT, meta);
-  assert.ok(!t.includes(CLOSING));
+  assert.ok(!t.includes("内容含 {变量}"), '上传内容不应再出现');
+  assert.ok(t.includes("门禁表"), '清空后应退回内置默认模板');
 });
 
 // ──  方案模板强制门禁：enforce 字段 / 注入说明 / 判定常量 / 无状态门判定 ──
 
-ok("v1.35 defaults 含 enforce:false（plan/closing）", () => {
+ok("v1.35 defaults 含 enforce:false（plan）", () => {
   assert.strictEqual(TEMPLATE_DEFAULTS.plan.enforce, false);
-  assert.strictEqual(TEMPLATE_DEFAULTS.closing.enforce, false);
 });
 
 ok("v1.35 开启 enforce → 注入文本声明强制门禁口径", async () => {
   await saveTemplate(ROOT, "plan", { name: "方案.md", content: PLAN });
-  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, enforce: true, name: "方案.md", bytes: 1 }, closing: TEMPLATE_DEFAULTS.closing };
+  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, enforce: true, name: "方案.md", bytes: 1 } };
   const t = collectTemplatesTextSync(ROOT, meta);
   assert.ok(t.includes("强制门禁"));
   assert.ok(t.includes("会被 harness 直接拒绝"));
 });
 
 ok("v1.35 enforce 关闭 → 注入文本不含强制声明", async () => {
-  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, enforce: false, name: "方案.md", bytes: 1 }, closing: TEMPLATE_DEFAULTS.closing };
+  const meta = { plan: { ...TEMPLATE_DEFAULTS.plan, enabled: true, enforce: false, name: "方案.md", bytes: 1 } };
   const t = collectTemplatesTextSync(ROOT, meta);
   assert.ok(!t.includes("强制门禁"));
 });
