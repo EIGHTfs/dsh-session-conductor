@@ -222,12 +222,19 @@ ok("v1.35 门：确认但无提案 → 拦", () => {
   assert.strictEqual(planGateAllows([gUser("确认")]), false);
 });
 
-ok("v1.35 门：已确认后新请求 → 重新提案（拦）", () => {
-  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(gPlan()), gUser("确认"), gAsst("已生效"), gUser("再改一版")]), false);
+// 语义变更（确认有效期绑任务边界）：确认之后、任务结束之前，用户继续说话不作废确认。
+// 旧语义是「最后一条真人消息必须命中确认词」，导致用户只要回应一句（含回答 AI 追问）
+// 就得重新提案——一个任务被反复要求确认。现在只有「收尾汇报」或「显式新任务词」才作废。
+ok("门：已确认后用户继续追加要求 → 仍放行（同一任务）", () => {
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(gPlan()), gUser("确认"), gAsst("已生效"), gUser("再改一版")]), true);
 });
 
-ok("v1.35 门：确认后回复「继续」→ 拦（严格口径）", () => {
-  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(gPlan()), gUser("确认"), gAsst("done"), gUser("继续")]), false);
+ok("门：确认后回复「继续」→ 放行（同一任务内不重复要求确认）", () => {
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(gPlan()), gUser("确认"), gAsst("done"), gUser("继续")]), true);
+});
+
+ok("门：出现显式「新任务」词 → 作废确认（拦）", () => {
+  assert.strictEqual(planGateAllows([gUser("改成强制"), gAsst(gPlan()), gUser("确认"), gAsst("done"), gUser("新任务：给列表加排序")]), false);
 });
 
 ok("v1.35 门：系统注入消息不干扰判定", () => {
