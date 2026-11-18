@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import {
   PLAN_ENFORCE_BASH_WRITE_RE,
   planGateAllows,
+  planGateAskAnswerText,
   planGateIsHumanMessage,
   stripQuotedForWriteHeuristic,
 } from '../../lib/template-inject.js';
@@ -136,4 +137,47 @@ test('bash 写启发式：只读命令不拦', () => {
   for (const cmd of ['git status', 'ls -la', 'cat a.txt', 'grep -n x f.js', 'node test/run-all.mjs']) {
     assert.equal(PLAN_ENFORCE_BASH_WRITE_RE.test(stripQuotedForWriteHeuristic(cmd)), false, `不该判为写：${cmd}`);
   }
+});
+
+// ── 提问框的确认（实测踩到：模板要求用 ask_user_question 提问，但答案落在 tool/result） ──
+
+/** 造一条 ask_user_question 的答案事件。 */
+function askAnswer(selected) {
+  return {
+    type: 'tool/result',
+    data: { content: [{ type: 'text', text: JSON.stringify({ answers: [{ id: 'x', selected }] }) }] },
+  };
+}
+
+test('提问框选「确认执行」也算确认（否则按模板提问反而过不了门禁）', () => {
+  const events = [
+    assistantMsg(PROPOSAL),
+    { type: 'tool/call', data: { name: 'ask_user_question' } },
+    askAnswer(['确认执行（推荐）']),
+  ];
+  assert.equal(planGateAllows(events), true, '用户在提问框里点的确认必须生效');
+});
+
+test('提问框选「取消」不算确认', () => {
+  const events = [
+    assistantMsg(PROPOSAL),
+    { type: 'tool/call', data: { name: 'ask_user_question' } },
+    askAnswer(['取消']),
+  ];
+  assert.equal(planGateAllows(events), false, '取消不该被当成确认');
+});
+
+test('planGateAskAnswerText：只认提问答案形状，普通 tool/result 返回空', () => {
+  assert.equal(planGateAskAnswerText(askAnswer(['确认'])), '确认');
+  assert.equal(planGateAskAnswerText({ type: 'tool/result', data: { content: [{ type: 'text', text: 'Error: boom' }] } }), '');
+  assert.equal(planGateAskAnswerText({ type: 'tool/result', data: {} }), '');
+});
+
+test('提问框确认后同样受任务边界约束（收尾汇报后作废）', () => {
+  const events = [
+    assistantMsg(PROPOSAL),
+    askAnswer(['确认执行']),
+    assistantMsg('══════════════════════════\n✅ 任务完成\n══════════════════════════'),
+  ];
+  assert.equal(planGateAllows(events), false, '收尾后提问框的确认也要作废');
 });

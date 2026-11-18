@@ -120,6 +120,12 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
   - 门禁自身异常 fail-open（放行并留痕），不阻断工具链。
   - 拦的工具：edit / write / apply（全拦）+ bash 写操作启发式（`>`/`>>` 重定向、sed -i、rm、mv、cp、tee、mkdir、touch、chmod/chown、git commit/reset/checkout --、patch、truncate、dd）。只读工具（read/grep/glob）永不拦。
     - bash 判定**先剥掉引号内的内容再匹配**：`curl -d '{"a":">b"}'` 里那个 `>` 是 JSON 字符不是重定向，直接扫原文会把纯网络请求误判成写操作。
+- ⚠️ **已知问题（强制门禁的「确认放行」未达预期，待重新设计）**：
+  - **拦截侧正常工作**：隔离实例实测 5 次 `write` 调用全部被正确拒绝，AI 也按要求改出完整提案。
+  - **放行侧未通过**：用户在隔离实例里先后回复「确认」4 次（含提问框点选、直接打字），`write` 仍被同一条 deny 拦住。
+  - **矛盾点**：用**同一份会话事件流**离线复算 `planGateAllows` 是**放行**（单测 19 + 40 条、真实事件流复算均通过）；运行时却拦截。事件流里 `user/message` 的 `source.kind` 实测共有五种（`user` / `runtime-context` / `time-context` / `plugin:dsh-git-push` / `plugin:dsh-session-conductor`），新判据能正确只认 `user`。
+  - **未定位的原因**：为定位加了拒绝时的诊断日志（`[plan-gate]`，打印 events 数量、尾部事件、最近 user-source），但实测拒绝发生时**该日志一条都没输出**，说明运行时可能并未走到该分支、或加载的仍是旧模块（磁盘上 local-plugins 与 node_modules 的 realpath 一致且都含新代码）。
+  - **结论**：现有门禁把「任务边界」与「确认来源」设计得过于依赖事件流细节，真实环境里难以稳定命中。**建议重新设计**：改为显式状态（提案时写一个带提案指纹的标记，确认时消掉它），而不是每次从事件流反推。当前不建议开启 `plan.enforce`。
   - 子 agent 豁免：delegationDepth>0 的会话放行（子 agent 无法交互确认；主会话是强制执行点）。
   - 门禁故障 fail-open（catch 里 next() + 留痕日志），不阻断工具链。
   - **坑（2026-10-15 实测）**：
