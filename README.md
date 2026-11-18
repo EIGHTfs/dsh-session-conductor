@@ -21,7 +21,7 @@ DSH 会话管理增强插件：面板管理会话、批量删除与回收站、�
 | 成员模型切换 | 切单个或全部成员的模型，可跟随主代理 | `/model-switch`、`set_member_model` |
 | 成员权限预设 | 查看/切换成员权限预设，支持批量与跟随 | `/perm-switch`、`set_member_permission` |
 | 成员换名 | 新建成员并把原会话内容搬进去 | `clone_member_as` |
-| 创建成员并选模型 | 创建时即指定模型，首轮就用它 | `create_teammate_with_model` |
+| 创建成员并选模型 | **不再推荐**：新版 DSH 用官方 `subagent`（原生支持 provider/model）；本工具仅旧版可用 | `create_teammate_with_model` → 新版本请用 `subagent` |
 | 指定模型新建会话 | 新建会话并直接指定 provider/model | `create_session` |
 | 记忆取回 | 上下文用量骤降时自动回注最近几轮对话 | 自动注入 + `recall_memory` |
 | 上下文用量 | 查自己会话的占用与构成 | `context_usage` |
@@ -83,7 +83,9 @@ list_permission_presets({})                        // 列出可选权限预设
 clone_member_as({ source, name, description, withHistory, provider, model, subagentProvider })
                                                    // source/name 必填；withHistory 默认 true（false=只建空成员）
 create_teammate_with_model({ name, description, prompt, provider, model, subagentProvider, context })
-                                                   // name/description/prompt/provider/model 必填
+                                                   // ⚠️ 不再推荐：仅旧版 DSH（仍有 agentTeams.spawnTeammate）有效。
+                                                   //    新版请直接用官方 subagent({ description, prompt, name?, provider?, model?, reasoning_effort? })
+                                                   //    —— 官方已原生支持指定模型，无需本工具补齐。新版调它会返回官方用法。
 create_session({ cwd, workspaceId, provider, model, text, dryRun, sessionId })
                                                    // 全可空：cwd 缺省=调用方 cwd；dryRun=true 只预览
 list_sessions({ query, limit, offset, fromIndex }) // 全可空：fromIndex=true 直接读索引（秒回）

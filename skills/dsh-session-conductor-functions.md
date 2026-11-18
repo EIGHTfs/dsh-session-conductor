@@ -142,6 +142,7 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 
 ## 九、成员模型切换（AI 工具 list_models / set_member_model）
 
+- ⚠️ **创建成员请直接用官方 `subagent` 工具**：它已原生支持 `provider` / `model` / `reasoning_effort`（底层走 `subagents.startLocal*` 的 `agentOptions`）。本插件自研的 `create_teammate_with_model` **不再推荐**——它当初存在的唯一理由是给官方接口补齐模型参数，而该理由已消失；旧版 DSH（仍暴露 `agentTeams.spawnTeammate`）继续可用，新版调用会直接返回官方用法说明而不是报错。
 - 用途：给 Team 里的队友/子代理**单独切模型**（只动该成员会话，不影响其他成员）。
 - **用户聊天框指令 `/model-switch`**（用户视角入口）：宿主把斜杠指令收在 `ctx.commands` 服务里，
   注册形态照官方范例 `@deepseek-ai/dsh-command-goal` 抄 —— `ctx.commands.register({definitionId, name, description, input:{hint}, recordInput, handler})`；`definitionId` 必须用 `@deepseek-ai/dsh-commands/brand` 的 `CommandDefinitionId("…")` 包一层。handler 收 `invocation`：文本从 `invocation.rawInput`（命令后原文）取、发起会话从 `invocation.agent` 取，返回 `{kind:"success"|"error", text}` 由聊天框渲染。三条形态：**无参**列成员与各自模型（便宜来源：本插件 override + 名册记录值）、**一参**查该成员**实际**在用哪个模型（读 `request/header`）、**两参**切换并回显查证快照。实现 `lib/features/member-model/command.js`（经域出口导出、由 `apply.js` 注册）。⚠️ 两个宿主能力（`ctx.commands`、`.../brand`）一律**动态导入 + 守卫**：拿不到就跳过注册并如实留痕 —— 静态引用宿主包会在导入期炸掉整个插件（本项目在 defineTool / createUserMessage 上踩过同类坑）。

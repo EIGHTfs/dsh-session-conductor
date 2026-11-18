@@ -85,10 +85,21 @@ test('缺参数时拒绝（name/description/prompt/provider/model 必填）', as
   }
 });
 
-test('服务缺 spawnTeammate / sendMessage 时如实报错', async () => {
+test('旧版无 spawnTeammate → 返回官方用法（不再报「不可用」）', async () => {
   const noSpawn = { logger, get: () => ({}) };
-  assert.match((await createTeammateWithModel(noSpawn, { agent: {} }, baseArgs)).error, /spawnTeammate/);
+  const result = await createTeammateWithModel(noSpawn, { agent: {} }, baseArgs);
+  // 新版语义：不报错，直接告诉调用方官方正确用法
+  assert.equal(result.deprecated, true);
+  assert.equal(result.official?.tool, 'subagent');
+  assert.match(result.message, /spawnTeammate/);
+  assert.match(result.official?.example ?? '', /subagent\(/);
+  // 官方参数表必须覆盖能指定模型的那几个
+  for (const key of ['description', 'prompt', 'provider', 'model']) {
+    assert.ok(result.official?.params?.[key], `缺少参数说明：${key}`);
+  }
+});
 
+test('有 spawnTeammate 但缺 sendMessage → 仍报错（旧路径不变）', async () => {
   const { ctx: noSend } = makeCtx({ sessionId: 's-1', withSend: false });
   assert.match((await createTeammateWithModel(noSend, { agent: {} }, baseArgs)).error, /sendMessage/);
 });
