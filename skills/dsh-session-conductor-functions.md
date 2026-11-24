@@ -61,6 +61,26 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 - 触发时机：每次回合结束（turn/end）后延迟分析；带最小间隔与新增消息数门槛控制 LLM 成本。
 - `analyze`：立即手动分析一次。
 
+#### ⚠️ 与官方标题插件二选一（同时开启会互相覆盖）
+
+官方在 DSH 0.2.2-rc.4 内置实验性插件 `@deepseek-ai/dsh-session-title-all-prompts-llm`（商店名「随对话更新的标题」）。两者都在写同一份 `sessionTitle`，**同一个会话只能有一套在跑**，同时开启会互相覆盖标题。
+
+| 维度 | 官方 all-prompts provider | 本插件 auto-rename |
+|---|---|---|
+| 角色 | `sessionTitle` 的 **provider**（注册进服务） | **consumer**（读写该服务） |
+| 触发 | 每条合格用户消息（含子会话）各开一个新 revision | `turn/end` 后延迟，且有门槛 |
+| 输入 | **全量历史**（第一条到现在） | **最近 12 条**用户消息（滑窗） |
+| 超长 | 超 `maxInputBytes` **直接失败**、保留旧标题 | 天然不会超限 |
+| 并发 | 新 revision abort 旧的，旧结果不提交 | 全局并发上限 2 |
+| 节流 | **无** | 至少 3 条消息；距上次新增 ≥3 条；同会话 ≥5 分钟；回合结束 8 秒防抖 |
+| 成本 | 每条消息 1 次，输入随历史累积增长 | 每约 3 条 1 次，输入恒定为 12 条窗口 |
+
+选型判据：**在意 token 用本插件，在意标题质量用官方**——官方看全量历史，对「主要任务变化」的判断更准；本插件靠节流与滑窗把成本压成线性。
+
+差异的成因：官方 provider 契约只要求 `id` / `automatic`（`first-prompt` 或 `all-prompts`）/ `generate()` 三个字段，调度、revision 取代、过期结果校验、`session/title` 写入都由 `sessionTitle` 服务代劳；本插件是自建调度，门槛与并发只能自己实现。
+
+**改造成 provider 架构的成本**（暂不做）：约 2.5 人天、858 行降至约 550 行。收益是免费获得 revision 语义（防过期覆盖）与生态一致；代价是官方 cadence 没有「每 N 条」概念（节流只能藏进 `generate` 内部）、判断「主题没变」时只能回当前标题（会 append 一条同值事件）。当前官方插件已关闭、无冲突，故不改造。
+
 ### 自动续跑（auto-continue）
 - 读取会话记录识别「非人为中断」回合 → 自动让 AI 继续完成原任务。
 - ⚠️  起**默认关闭**（`defaultAutoContinue` 缺省 false）：未显式开启的会话不再自动续跑；需在面板每条会话「⋯」菜单里逐条开启，或显式配置 `defaultAutoContinue: true` 全局开启。已显式开启的会话不受影响。
