@@ -81,6 +81,27 @@ whenToUse: 需要了解 dsh-session-conductor 某个功能怎么用/参数是什
 
 **改造成 provider 架构的成本**（暂不做）：约 2.5 人天、858 行降至约 550 行。收益是免费获得 revision 语义（防过期覆盖）与生态一致；代价是官方 cadence 没有「每 N 条」概念（节流只能藏进 `generate` 内部）、判断「主题没变」时只能回当前标题（会 append 一条同值事件）。当前官方插件已关闭、无冲突，故不改造。
 
+#### 双模式切换（consumer / provider）
+
+自动重命名有两套实现，由插件配置项 `renameMode` 二选一：
+
+| 模式 | 实现 | 调度方 |
+|---|---|---|
+| `consumer`（默认） | 本插件自建 `turn/end` 调度，门槛与并发自己实现 | 本插件 |
+| `provider` | 注册进官方 `sessionTitle.register()`，`automatic: all-prompts` | 宿主 |
+
+切换方式：在插件的 profile 配置里加 `renameMode: "provider"`，重启后生效。未配置时按 `consumer` 走（旧行为不变）。
+
+provider 模式的要点：
+
+- **节流仍在 `generate()` 内部**：官方 cadence 每条真人消息都会调一次 `generate`，所以门槛（≥3 条消息、距上次 ≥3 条、间隔 ≥5 分钟、滑窗 12 条）必须自己拨住，否则退化成每条消息一次 LLM 调用。
+- **「不需要改」= 原样返回 `currentTitle`**：官方要求返回非空标题，保留原标题会 append 一条同值事件（可接受的日志噪音）。
+- **分析异常自己咽下**：`generate` 抛出的异常会落到官方调度里，因此内部 try/catch 兜底、保留原标题，不影响宿主链路。
+- **注册失败自动降级 consumer**：最常见成因是官方已注册了别的 provider（服务只允许一个）。若此时不降级，自建调度会以为「已交给官方」而停手，自动重命名会**彻底静默失效**。
+- **两模式互斥**：provider 生效时 `scheduleAnalysis()` 直接 return，不再建 consumer 定时器。
+
+尚未做的部分：设置页目前没有模式下拉（切换需改配置文件），后续再补 UI。
+
 ### 自动续跑（auto-continue）
 - 读取会话记录识别「非人为中断」回合 → 自动让 AI 继续完成原任务。
 - ⚠️  起**默认关闭**（`defaultAutoContinue` 缺省 false）：未显式开启的会话不再自动续跑；需在面板每条会话「⋯」菜单里逐条开启，或显式配置 `defaultAutoContinue: true` 全局开启。已显式开启的会话不受影响。
