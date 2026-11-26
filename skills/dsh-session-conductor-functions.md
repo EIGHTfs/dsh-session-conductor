@@ -319,6 +319,31 @@ provider 模式的要点：
 **配置**：`retrieveMemory`（默认开）/ `retrieveMemoryRounds`(3) / `retrieveMemoryMinDropRatio`(0.10) /
 `retrieveMemoryMinDropTokens`(0) / `retrieveMemoryMaxChars`(4000) / `retrieveMemoryMaxCharsPerItem`(800)。
 
+## 十四、未读状态（改用宿主 session-status）
+
+会话面板的未读标记**不再自己算**，改为读宿主 `uiSession.sessionStatus`：
+
+| 状态 | 来源字段 |
+|---|---|
+| 未读 | `completionUnread`（宿主判据：`completedTurn > readTurn` 且非当前查看的会话） |
+| 运行中 | `running` |
+| 待交互 | `pendingInteraction` |
+| 上次完成失败 | `completionFailed` |
+
+取法：`ctx.get("uiSession")?.sessionStatus`（本插件未在 `inject` 声明 `uiSession`，写 `ctx.uiSession` 会一直是 undefined）。订阅用它的 `getSnapshot()` + `subscribe()`；标记已读用 `sessionStatus.reading.mark(sessionId, false)`。
+
+「全部已读」宿主没有批量接口，前端遍历当前列表逐个 `mark`。
+
+**为什么废弃自研的时间戳方案**（原 `updatedAt > readAt`）：
+
+1. 会话流式输出时 `updatedAt` 持续变化 → 刚标已读又变未读，即使正盯着那个会话
+2. 后台任务写日志、插件注入、索引重建都会推高 `updatedAt`，但这些不是「有新回复待看」
+3. 分不出「跑完没看」与「跑挂没看」
+
+宿主用回合作为语义单位，且显式排除正在查看的会话，这才是「有没有新东西给你看」的正确判据。
+
+**宿主没装或关闭该插件时不显示未读点，不报错** —— 不保留第二套算法。相关自研代码（`features/unread.js` / `features/unread-routes.js`）及索引里的 `unread` 存储字段已移除。
+
 ## 相关
 
 - dsh-session-conductor（使用手册，与本文档配套）
