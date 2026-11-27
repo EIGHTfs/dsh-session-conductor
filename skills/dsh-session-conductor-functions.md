@@ -344,6 +344,22 @@ provider 模式的要点：
 
 **宿主没装或关闭该插件时不显示未读点，不报错** —— 不保留第二套算法。相关自研代码（`features/unread.js` / `features/unread-routes.js`）及索引里的 `unread` 存储字段已移除。
 
+## 十五、前端改动注意事项（踩过的坑）
+
+**给组件新增 prop 时，必须同步改组件的解构签名。**
+
+面板组件是这种写法：
+
+```js
+function SessionManagerPanel({ wide, t, onOpenSession, sessionStatus: hostSessionStatus = null }) {
+```
+
+如果只往 `inject` 的返回值里加 `sessionStatus`，却忘了在解构里加上，组件内部就**没有 `props` 这个标识符**。此时写 `props?.sessionStatus` 不会得到 `undefined`，而是抛 `ReferenceError: props is not defined`：可选链只处理「已声明但为 null/undefined」的情况，救不了未声明的标识符。
+
+后果不是「未读点不显示」，而是**整个组件渲染失败、侧边栏入口一起消失**。
+
+**改前端必须实际渲染验证。** 构建成功 + `node --check` 通过，都只能证明语法没问题，证明不了组件能渲染。判断依据只有一条：打开页面，确认入口在、面板能打开、按钮齐全、无 JS 报错。
+
 ## 相关
 
 - dsh-session-conductor（使用手册，与本文档配套）
